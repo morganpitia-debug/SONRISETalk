@@ -1,0 +1,452 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                 String                 @id @default(uuid())
+  email              String?                @unique
+  phone              String?                @unique
+  username           String                 @unique
+  passwordHash       String
+  birthday           DateTime?
+  emailVerifiedAt    DateTime?
+  phoneVerifiedAt    DateTime?
+  lastSeenAt         DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  isAdmin            Boolean                @default(false)
+  profile            Profile?
+  settings           UserSettings?
+  sessions           Session[]
+  posts              Post[]
+  likes              Like[]
+  comments           Comment[]
+  followsSent        Follow[]               @relation("FollowFollower")
+  followsReceived    Follow[]               @relation("FollowFollowing")
+  stories            Story[]
+  highlights         Highlight[]
+  storyViews         StoryView[]
+  storyLikes         StoryLike[]
+  storyMutes         StoryMute[]            @relation("StoryMuteOwner")
+  mutedByStories     StoryMute[]            @relation("StoryMuteTarget")
+  notes              Note?
+  conversationMembers ConversationMember[]
+  conversationNicknamesSet ConversationNickname[] @relation("ConversationNicknameSetter")
+  conversationNicknamesReceived ConversationNickname[] @relation("ConversationNicknameTarget")
+  messages           Message[]
+  notificationsReceived Notification[]       @relation("NotificationRecipient")
+  notificationsActed Notification[]          @relation("NotificationActor")
+  savedPosts         SavedPost[]
+  activities         Activity[]
+  reportsFiled       UserReport[]           @relation("UserReportReporter")
+  reportsReceived    UserReport[]           @relation("UserReportTarget")
+  callsInitiated     Call[]                 @relation("CallInitiator")
+  callsReceived      Call[]                 @relation("CallRecipient")
+
+  @@map("users")
+}
+
+model Profile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  name           String
+  bio            String   @default("")
+  profilePicture String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("profiles")
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+model Post {
+  id        String      @id @default(uuid())
+  userId    String
+  content   String?
+  caption   String?
+  format    String      @default("Post")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  media     PostMedia[]
+  likes     Like[]
+  comments  Comment[]
+  savedBy   SavedPost[]
+  notifications Notification[]
+
+  @@index([createdAt, id])
+  @@index([userId, createdAt])
+  @@map("posts")
+}
+
+model PostMedia {
+  id              String   @id @default(uuid())
+  postId          String
+  url             String
+  storageKey      String?
+  storageProvider String   @default("local")
+  mediaType       String
+  contentType     String
+  sizeBytes       BigInt?
+  position        Int      @default(0)
+  createdAt       DateTime @default(now())
+  post            Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([postId, position])
+  @@map("post_media")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId, createdAt])
+  @@map("likes")
+}
+
+model Comment {
+  id              String    @id @default(uuid())
+  postId          String
+  userId          String
+  parentCommentId String?
+  content         String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  parent          Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  replies         Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+  @@index([userId, createdAt])
+  @@map("comments")
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  status      String   @default("accepted")
+  createdAt   DateTime @default(now())
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId, createdAt])
+  @@map("follows")
+}
+
+model Story {
+  id            String      @id @default(uuid())
+  userId        String
+  mediaUrl      String
+  mediaType     String
+  caption       String?
+  createdAt     DateTime    @default(now())
+  expiresAt     DateTime
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  views         StoryView[]
+  likes         StoryLike[]
+  notifications Notification[]
+  highlightStories HighlightStory[]
+
+  @@index([expiresAt, createdAt])
+  @@index([userId, createdAt])
+  @@map("stories")
+}
+
+model Highlight {
+  id           String           @id @default(uuid())
+  ownerId      String
+  title        String
+  coverUrl     String
+  coverType    String           @default("image")
+  displayOrder Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  owner        User             @relation(fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  items        HighlightStory[]
+
+  @@index([ownerId, displayOrder])
+  @@map("highlights")
+}
+
+model HighlightStory {
+  id          String    @id @default(uuid())
+  highlightId String
+  storyId     String
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  highlight   Highlight @relation(fields: [highlightId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  story       Story     @relation(fields: [storyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([highlightId, storyId])
+  @@unique([highlightId, position])
+  @@index([storyId])
+  @@map("highlight_stories")
+}
+
+model StoryView {
+  id       String   @id @default(uuid())
+  storyId  String
+  userId   String
+  viewedAt DateTime @default(now())
+  story    Story    @relation(fields: [storyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([storyId, userId])
+  @@index([userId, viewedAt])
+  @@map("story_views")
+}
+
+model StoryLike {
+  id        String   @id @default(uuid())
+  storyId   String
+  userId    String
+  createdAt DateTime @default(now())
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([storyId, userId])
+  @@index([userId, createdAt])
+  @@map("story_likes")
+}
+
+model StoryMute {
+  id            String   @id @default(uuid())
+  userId        String
+  mutedUserId   String
+  createdAt     DateTime @default(now())
+  user          User     @relation("StoryMuteOwner", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  mutedUser     User     @relation("StoryMuteTarget", fields: [mutedUserId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, mutedUserId])
+  @@index([mutedUserId, createdAt])
+  @@map("story_mutes")
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  content   String
+  audience  String   @default("followers")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([expiresAt])
+  @@map("notes")
+}
+
+model Conversation {
+  id                  String              @id @default(uuid())
+  groupName           String?
+  groupPicture        String?
+  groupPictureAssetId String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  members     ConversationMember[]
+  messages    Message[]
+  calls       Call[]
+  nicknames   ConversationNickname[]
+
+  @@index([updatedAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+  muted          Boolean      @default(false)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, conversationId])
+  @@map("conversation_members")
+}
+
+model ConversationNickname {
+  id             String       @id @default(uuid())
+  conversationId String
+  setterUserId   String
+  targetUserId   String
+  nickname       String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  setter         User         @relation("ConversationNicknameSetter", fields: [setterUserId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  target         User         @relation("ConversationNicknameTarget", fields: [targetUserId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([conversationId, setterUserId, targetUserId])
+  @@index([targetUserId])
+  @@map("conversation_nicknames")
+}
+
+model Message {
+  id             String         @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  contextLabel   String?
+  createdAt      DateTime       @default(now())
+  readAt         DateTime?
+  deliveredAt    DateTime?
+  voiceNoteAssetId String?
+  voiceNoteMimeType String?
+  voiceNoteSizeBytes Int?
+  voiceNoteFormat String?
+  imageUrl       String?
+  imageAssetId   String?
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sender         User           @relation(fields: [senderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  notifications Notification[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String
+  actorId     String?
+  type        String
+  message     String?
+  postId      String?
+  storyId     String?
+  messageId   String?
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  recipient   User     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  actor       User?    @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  post        Post?    @relation(fields: [postId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  story       Story?   @relation(fields: [storyId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  messageRef  Message? @relation(fields: [messageId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([recipientId, actorId, type, postId])
+  @@index([recipientId, createdAt])
+  @@index([recipientId, readAt])
+  @@map("notifications")
+}
+
+model SavedPost {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId, createdAt])
+  @@map("saved_posts")
+}
+
+model UserReport {
+  id             String   @id @default(uuid())
+  reporterUserId String
+  reportedUserId String
+  reason         String
+  details        String?
+  status         String   @default("open")
+  createdAt      DateTime @default(now())
+  reporter       User     @relation("UserReportReporter", fields: [reporterUserId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reportedUser   User     @relation("UserReportTarget", fields: [reportedUserId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([status, createdAt])
+  @@index([reportedUserId, createdAt])
+  @@map("user_reports")
+}
+
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  actorUserId  String
+  targetUserId String
+  action       String
+  details      String?
+  createdAt    DateTime @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@map("admin_audit_logs")
+}
+
+model Activity {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("activities")
+}
+
+model UserSettings {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  isPrivate               Boolean  @default(false)
+  allowMessagesFrom       String   @default("everyone")
+  allowCommentsFrom       String   @default("everyone")
+  notificationPreferences Json?
+  language                String   @default("en")
+  aiPermissions           Json?
+  allowNicknamesFrom      String   @default("everyone")
+  twoFactorEnabled        Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("user_settings")
+}
+
+model Call {
+  id             String       @id @default(uuid())
+  conversationId String
+  initiatorId    String
+  recipientId    String
+  mediaType      String
+  status         String       @default("ringing")
+  startedAt      DateTime     @default(now())
+  acceptedAt     DateTime?
+  endedAt        DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  initiator      User         @relation("CallInitiator", fields: [initiatorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  recipient      User         @relation("CallRecipient", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([conversationId, startedAt])
+  @@index([recipientId, status, startedAt])
+  @@map("calls")
+}

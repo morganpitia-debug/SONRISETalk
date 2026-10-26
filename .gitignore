@@ -1,0 +1,8 @@
+node_modules/
+dist/
+/generated/
+project.db
+project.db-shm
+project.db-wal
+.env*
+!.env.example

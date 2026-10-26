@@ -1,0 +1,40 @@
+{
+  "name": "sonrisetalk",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:api\" \"npm:dev:web\"",
+    "predev:api": "npm run db:generate",
+    "dev:api": "node server/start.js",
+    "dev:web": "vite --host localhost --strictPort",
+    "build": "prisma generate && vite build",
+    "preview": "vite preview",
+    "test": "node --test",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate deploy",
+    "db:check": "prisma generate && node server/db-check.js",
+    "admin:hash": "node server/admin/createPasswordHash.js"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "cloudinary": "^2.11.0",
+    "concurrently": "^10.0.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
+    "libphonenumber-js": "^1.13.14",
+    "multer": "^2.5.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "prisma": "^7.10.1",
+    "vite": "^6.0.5"
+  }
+}

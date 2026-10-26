@@ -1,0 +1,27 @@
+@import './shell.css';
+@import './home.css';
+@import './discover.css';
+@import './messages.css';
+@import './create.css';
+@import './profile.css';
+@import './notifications.css';
+@import './settings.css';
+@import './sonrise-ai.css';
+@import './auth.css';
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: #090b0d;
+}
+
+button, a { color: inherit; font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright); outline-offset: 4px; }
