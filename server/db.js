@@ -6,7 +6,7 @@ import { PrismaClient } from '../generated/prisma/index.js'
 
 dotenv.config({ path: '.env.local' })
 
-const databaseUrl = process.env.DATABASE_URL || 'file:../project.db'
+const databaseUrl = process.env.DATABASE_URL || 'file:./project.db'
 if (!databaseUrl.startsWith('file:')) {
   throw new Error('DATABASE_URL must use a SQLite file: URL.')
 }

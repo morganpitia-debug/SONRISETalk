@@ -25,6 +25,10 @@ npm run db:check
 
 The database provider is SQLite, using Prisma 7's `better-sqlite3` driver adapter. The generated Prisma client is kept under the ignored `generated/` directory, and `npm run build` regenerates it before compiling the app. The prior migrations were PostgreSQL-specific and have been replaced for new SQLite setups. Existing PostgreSQL database contents are not copied automatically.
 
+## Render deployment
+
+For a Render API Web Service, use `npm ci && npm run build` as the build command and `npm run dev:api` as the start command. Attach a persistent disk mounted at `/var/data` and set `DATABASE_URL` to `file:/var/data/project.db`; this ensures migrations and the API use the same persistent SQLite database. Without this setting, both use `project.db` in the project root. SQLite deployments should run a single API instance.
+
 ## Cloudinary media
 
 Cloudinary credentials are read from the server-only `CLOUDINARY_URL` or the `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` entries in `.env.local`; never use `VITE_CLOUDINARY_*`. Authenticated uploads go through `/api/media/upload`, which streams accepted images and videos to the account folder and records Cloudinary URLs/asset IDs in posts and stories. The API enforces file type/size limits and tags uploads under the signed-in account's folder.
