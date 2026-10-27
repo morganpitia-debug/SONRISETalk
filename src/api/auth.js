@@ -1,5 +1,5 @@
 export function isApiEnabled() {
-  return Boolean(import.meta.env.VITE_API_URL)
+  return import.meta.env.PROD || Boolean(import.meta.env.VITE_API_URL)
 }
 
 export function getAuthToken() {

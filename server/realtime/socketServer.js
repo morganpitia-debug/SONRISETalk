@@ -3,6 +3,7 @@ import { getAuthenticatedSession } from '../auth/session.js'
 import { prisma } from '../db.js'
 import { addOnlineSocket, getOnlineUserIds, isUserOnline, removeOnlineSocket } from './presence.js'
 import { getCallEndStatus, getCallPeerId, isValidCallSignal } from './callPolicy.js'
+import { isAllowedOrigin } from './originPolicy.js'
 import { mediaOwnershipPrefix } from '../media/mediaService.js'
 
 const MESSAGE_LIMIT = 4000
@@ -86,8 +87,7 @@ export function attachSocketServer(httpServer, { clientUrl }) {
       credentials: true,
     },
     allowRequest(request, callback) {
-      const origin = request.headers.origin
-      callback(null, !origin || clientUrls.includes(origin))
+      callback(null, isAllowedOrigin(request, clientUrls))
     },
   })
   realtimeServer = io

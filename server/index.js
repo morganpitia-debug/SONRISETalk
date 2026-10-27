@@ -1,6 +1,9 @@
 import dotenv from 'dotenv'
 import { createServer } from 'node:http'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
+import { serveWebClient } from './webClient.js'
 import { rateLimit } from 'express-rate-limit'
 import { prisma } from './db.js'
 import authRoutes from './auth/routes.js'
@@ -17,6 +20,7 @@ dotenv.config({ path: '.env.local' })
 
 const app = express()
 const httpServer = createServer(app)
+const clientBuildDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist')
 const port = Number(process.env.PORT || 3001)
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGINS || 'http://localhost:5173,http://localhost:4173')
@@ -39,15 +43,8 @@ app.use((request, response, next) => {
   }
   next()
 })
-
 app.use(express.json({ limit: '1mb' }))
-app.get('/', (_request, response) => response.status(200).json({
-  data: {
-    name: 'SONRISETALK API',
-    status: 'ok',
-    health: '/api/health',
-  },
-}))
+app.use(express.json({ limit: '1mb' }))
 app.get('/api/health', (_request, response) => response.status(200).json({ data: { status: 'ok' } }))
 app.use('/api/auth', authRoutes)
 app.use('/api/ai', aiRoutes)
@@ -63,6 +60,7 @@ app.use('/api/notifications', notificationsRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api', realtimeRoutes)
 app.use('/api', socialRoutes)
+serveWebClient(app, clientBuildDirectory)
 
 app.use((error, _request, response, _next) => {
   const status = error.status
