@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { configureCloudinary, fetchVoiceNoteFromCloudinary, getVoiceNotePlaybackUrl, getVoiceNoteUploadError, hasValidVoiceNoteSignature, isAllowedMediaType, isAllowedVoiceMimeType } from './mediaService.js'
+import { configureCloudinary, fetchVoiceNoteFromCloudinary, getMediaUploadError, getVoiceNotePlaybackUrl, getVoiceNoteUploadError, hasValidVoiceNoteSignature, isAllowedMediaType, isAllowedVoiceMimeType } from './mediaService.js'
 
 test('Cloudinary configuration accepts a CLOUDINARY_URL', () => {
   const originalUrl = process.env.CLOUDINARY_URL
@@ -70,6 +70,14 @@ test('voice-note storage authentication failures return an actionable service er
   assert.equal(error.code, 'MEDIA_PROVIDER_AUTH_FAILED')
   assert.match(error.message, /Cloudinary credentials/)
   assert.equal(getVoiceNoteUploadError({ http_code: 400 }).http_code, 400)
+})
+
+test('media storage authentication failures return an actionable service error', () => {
+  const error = getMediaUploadError({ http_code: 401 })
+  assert.equal(error.status, 503)
+  assert.equal(error.code, 'MEDIA_PROVIDER_AUTH_FAILED')
+  assert.match(error.message, /Cloudinary credentials/)
+  assert.equal(getMediaUploadError({ http_code: 400 }).http_code, 400)
 })
 
 test('voice-note upload signatures must match their declared media type', async (context) => {

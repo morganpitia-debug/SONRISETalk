@@ -143,13 +143,26 @@ router.post('/chat', chatLimiter, upload.array('files', MAX_FILES), async (reque
     )
 
     if (!geminiResponse.ok) {
-      const status = geminiResponse.status === 429 ? 503 : 502
+      const providerStatus = geminiResponse.status
+      const status = providerStatus === 429 ? 503 : 502
+      const message = providerStatus === 401 || providerStatus === 403
+        ? 'Gemini rejected the server API key or does not have API access. Check GEMINI_API_KEY in the Render Web Service environment.'
+        : providerStatus === 404
+          ? 'The configured Gemini model is unavailable. Check the model name and API access.'
+          : providerStatus === 429
+            ? 'The Gemini service is busy or its quota has been reached. Check the project quota or try again later.'
+            : 'The AI service could not complete this request. Please try again.'
+      console.error('Gemini request failed:', { status: providerStatus })
       response.status(status).json({
         error: {
-          code: geminiResponse.status === 429 ? 'AI_PROVIDER_BUSY' : 'AI_PROVIDER_ERROR',
-          message: geminiResponse.status === 429
-            ? 'The AI service is busy right now. Please try again shortly.'
-            : 'The AI service could not complete this request. Please try again.',
+          code: providerStatus === 401 || providerStatus === 403
+            ? 'AI_PROVIDER_AUTH_FAILED'
+            : providerStatus === 404
+              ? 'AI_MODEL_UNAVAILABLE'
+              : providerStatus === 429
+                ? 'AI_PROVIDER_BUSY'
+                : 'AI_PROVIDER_ERROR',
+          message,
         },
       })
       return
@@ -173,6 +186,7 @@ router.post('/chat', chatLimiter, upload.array('files', MAX_FILES), async (reque
       response.status(504).json({ error: { code: 'AI_TIMEOUT', message: 'The AI service took too long to respond. Please try again.' } })
       return
     }
+    console.error('Gemini request could not be completed:', error.name || 'UnknownError')
     response.status(502).json({ error: { code: 'AI_PROVIDER_ERROR', message: 'The AI service could not complete this request. Please try again.' } })
   }
 })

@@ -439,7 +439,7 @@ export default function ProfilePage({ profile, onProfileChange, viewedProfile = 
                 <button className={`profile-follow-button${isFollowed || followRequested ? ' is-following' : ''}`} type="button" aria-pressed={isFollowed || followRequested} onClick={() => onToggleFollow?.(displayedProfile)}>
                   {isFollowed ? 'Following' : followRequested ? 'Request sent' : 'Follow'}
                 </button>
-                {canMessage && <button className="profile-secondary-button" type="button" onClick={() => onMessageProfile?.(viewedProfile)}>Message</button>}
+                {canMessage && <button className="profile-secondary-button" type="button" onClick={() => onMessageProfile?.(displayedProfile)}>Message</button>}
                 <button className="profile-secondary-button" type="button" onClick={() => onViewProfile?.(null)}>Back to my profile</button>
               </>
             )}

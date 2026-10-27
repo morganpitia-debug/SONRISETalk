@@ -38,6 +38,15 @@ export function getVoiceNoteUploadError(error) {
   return authError
 }
 
+export function getMediaUploadError(error) {
+  if (error?.http_code !== 401 && error?.error?.http_code !== 401) return error
+
+  const authError = new Error('Media storage rejected its credentials. Check the Cloudinary credentials in the API server environment.')
+  authError.status = 503
+  authError.code = 'MEDIA_PROVIDER_AUTH_FAILED'
+  return authError
+}
+
 export async function hasValidVoiceNoteSignature(file) {
   const handle = await open(file.path, 'r')
   try {
@@ -79,14 +88,19 @@ export async function uploadMediaToCloudinary(file, userId) {
   const configuredFolder = (process.env.CLOUDINARY_FOLDER || 'sonrisetalk').replace(/^\/+|\/+$/g, '')
   const folder = `${configuredFolder}/${userId}`
   const resourceType = file.mimetype.startsWith('video/') ? 'video' : 'image'
-  const uploaded = await cloudinary.uploader.upload(file.path, {
-    folder,
-    public_id: randomUUID(),
-    resource_type: resourceType,
-    overwrite: false,
-    use_filename: false,
-    unique_filename: true,
-  })
+  let uploaded
+  try {
+    uploaded = await cloudinary.uploader.upload(file.path, {
+      folder,
+      public_id: randomUUID(),
+      resource_type: resourceType,
+      overwrite: false,
+      use_filename: false,
+      unique_filename: true,
+    })
+  } catch (error) {
+    throw getMediaUploadError(error)
+  }
 
   return {
     url: uploaded.secure_url,

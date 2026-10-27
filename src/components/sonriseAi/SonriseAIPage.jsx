@@ -231,7 +231,7 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
       ? 'Ask SONRISE AI anything.'
       : providerStatus === 'error'
         ? 'The AI service could not be reached.'
-        : 'SONRISE AI isn’t configured yet.'
+        : 'SONRISE AI needs a Gemini API key.'
 
   return (
     <div className="sonrise-ai-page">
@@ -282,7 +282,9 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
                   ? 'Your messages are sent securely through the server.'
                   : providerStatus === 'loading'
                     ? 'Please wait while the server checks AI availability.'
-                    : error || 'Configure the server-side AI key and restart the API.'}</p>
+                    : providerStatus === 'error'
+                      ? error || 'Check the Render Web Service logs and confirm its API is running.'
+                      : 'Add GEMINI_API_KEY in Render → your Web Service → Environment, then redeploy.'}</p>
               </div>
             ) : (
               <div className="sonrise-ai-messages">
@@ -320,7 +322,7 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
                 <button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => removeAttachment(attachment.id)}><Icon name="close" size={13} /></button>
               </span>)}
             </div>}
-            <span className="sonrise-ai-composer__hint" role={error ? 'alert' : undefined}>{error || (sending ? 'SONRISE AI is thinking…' : canChat ? 'Enter to send · Shift+Enter for a new line' : 'Responses are unavailable until AI is configured.')}</span>
+            <span className="sonrise-ai-composer__hint" role={error ? 'alert' : undefined}>{error || (sending ? 'SONRISE AI is thinking…' : canChat ? 'Enter to send · Shift+Enter for a new line' : providerStatus === 'unavailable' ? 'Add GEMINI_API_KEY in Render → your Web Service → Environment, then redeploy.' : 'Responses are unavailable until AI is configured.')}</span>
             <button className="sonrise-ai-send" type="submit" aria-label="Send to SONRISE AI" disabled={!canChat || (!prompt.trim() && !attachments.length)}><Icon name="send" size={17} /></button>
           </form>
         </section>

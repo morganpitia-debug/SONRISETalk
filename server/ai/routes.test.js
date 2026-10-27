@@ -25,8 +25,12 @@ test('AI chat forwards uploaded images and text files with their message', async
     await new Promise((resolve) => server.close(resolve))
   })
 
+  let providerStatus = 200
   globalThis.fetch = async (_url, options) => {
     providerRequest = JSON.parse(options.body)
+    if (providerStatus !== 200) {
+      return { ok: false, status: providerStatus }
+    }
     return {
       ok: true,
       json: async () => ({ candidates: [{ content: { parts: [{ text: 'I can review those files.' }] } }] }),
@@ -52,4 +56,15 @@ test('AI chat forwards uploaded images and text files with their message', async
     data: Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64'),
   })
   assert.equal(providerRequest.contents[0].parts[2].text, '\n\nUploaded file (notes.txt):\nsample text')
+
+  providerStatus = 403
+  const providerErrorForm = new FormData()
+  providerErrorForm.append('messages', JSON.stringify([{ role: 'user', text: 'Hello' }]))
+  providerErrorForm.append('fileMessageIndices', '[]')
+  const providerErrorResponse = await outgoingFetch(`http://127.0.0.1:${server.address().port}/api/ai/chat`, {
+    method: 'POST',
+    body: providerErrorForm,
+  })
+  assert.equal(providerErrorResponse.status, 502)
+  assert.equal((await providerErrorResponse.json()).error.code, 'AI_PROVIDER_AUTH_FAILED')
 })

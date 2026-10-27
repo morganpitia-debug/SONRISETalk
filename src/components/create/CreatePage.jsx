@@ -131,6 +131,8 @@ function CameraCapture({ format, caption, onClose, onPost }) {
   const [recording, setRecording] = useState(false)
   const [paused, setPaused] = useState(false)
   const [flashOn, setFlashOn] = useState(false)
+  const [flashAvailable, setFlashAvailable] = useState(false)
+  const [switchingCamera, setSwitchingCamera] = useState(false)
   const [cameraMode, setCameraMode] = useState(format === 'Reel' ? 'video' : 'photo')
   const [facingMode, setFacingMode] = useState('user')
   const [focusPoint, setFocusPoint] = useState(null)
@@ -150,11 +152,12 @@ function CameraCapture({ format, caption, onClose, onPost }) {
     setStream(null)
   }
 
-  async function requestCameraStream(facing) {
+  async function requestCameraStream(facing, { exactFacing = false } = {}) {
+    const video = { facingMode: { [exactFacing ? 'exact' : 'ideal']: facing } }
     try {
-      return await navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: { ideal: facing } } })
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video })
     } catch (audioError) {
-      return navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing } } })
+      return navigator.mediaDevices.getUserMedia({ audio: false, video })
     }
   }
 
@@ -211,19 +214,43 @@ function CameraCapture({ format, caption, onClose, onPost }) {
     if (videoRef.current && stream) videoRef.current.srcObject = stream
   }, [stream, preview])
 
+  useEffect(() => {
+    let available = false
+    try {
+      available = stream?.getVideoTracks()[0]?.getCapabilities?.().torch === true
+    } catch {
+      available = false
+    }
+    setFlashAvailable(available)
+    if (!available) setFlashOn(false)
+  }, [stream])
+
   async function switchCamera() {
     const nextFacing = facingMode === 'user' ? 'environment' : 'user'
+    const previousFacing = facingMode
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    setStream(null)
+    setFlashOn(false)
+    setFlashAvailable(false)
+    setSwitchingCamera(true)
     try {
-      const nextStream = await requestCameraStream(nextFacing)
-      const previousStream = streamRef.current
+      const nextStream = await requestCameraStream(nextFacing, { exactFacing: true })
       streamRef.current = nextStream
       setStream(nextStream)
       setFacingMode(nextFacing)
-      setFlashOn(false)
-      previousStream?.getTracks().forEach((track) => track.stop())
       setError('')
     } catch (switchError) {
-      setError(switchError.message || 'The other camera could not be started.')
+      try {
+        const restoredStream = await requestCameraStream(previousFacing)
+        streamRef.current = restoredStream
+        setStream(restoredStream)
+        setError(switchError.message || 'The other camera could not be started.')
+      } catch (restoreError) {
+        setError(`${switchError.message || 'The other camera could not be started.'} ${restoreError.message || 'The previous camera could not be restarted.'}`)
+      }
+    } finally {
+      setSwitchingCamera(false)
     }
   }
 
@@ -327,7 +354,7 @@ function CameraCapture({ format, caption, onClose, onPost }) {
   async function toggleFlash() {
     const track = streamRef.current?.getVideoTracks()[0]
     const capabilities = track?.getCapabilities?.()
-    if (!track || !capabilities?.torch) {
+    if (!track || capabilities?.torch !== true) {
       setError('Flash is not available on this camera.')
       return
     }
@@ -384,11 +411,11 @@ function CameraCapture({ format, caption, onClose, onPost }) {
             {recording && <span className={`create-camera__recording${paused ? ' is-paused' : ''}`}><i /> {paused ? 'PAUSED' : 'REC'} {String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')}</span>}
           </div>
           <button className="create-camera__close" type="button" onClick={onClose} aria-label="Close camera"><Icon name="close" size={22} /></button>
-          <button className={`create-camera__flash${flashOn ? ' is-on' : ''}`} type="button" onClick={toggleFlash} aria-label={flashOn ? 'Turn flash off' : 'Turn flash on'}><Icon name="flash" size={20} /></button>
+          <button className={`create-camera__flash${flashOn ? ' is-on' : ''}`} type="button" onClick={toggleFlash} disabled={!stream || !flashAvailable} title={flashAvailable ? (flashOn ? 'Turn flash off' : 'Turn flash on') : 'Flash is not available on this camera'} aria-label={flashAvailable ? (flashOn ? 'Turn flash off' : 'Turn flash on') : 'Flash is not available on this camera'}><Icon name="flash" size={20} /></button>
           {error && <p className="create-camera__error" role="alert">{error}</p>}
           <input ref={pickerRef} className="create-camera__gallery-input" type="file" accept="image/*,video/*" onChange={selectGalleryMedia} />
           <button className="create-camera__gallery" type="button" disabled={recording} onClick={() => pickerRef.current?.click()} aria-label="Choose from gallery"><Icon name="image" size={21} /></button>
-          <button className="create-camera__switch" type="button" disabled={recording} onClick={switchCamera} aria-label="Switch camera"><Icon name="switch-camera" size={21} /></button>
+          <button className="create-camera__switch" type="button" disabled={!stream || recording || switchingCamera} onClick={switchCamera} aria-label={facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera'} title={facingMode === 'user' ? 'Switch to rear camera' : 'Switch to front camera'}><Icon name="switch-camera" size={21} /></button>
           {cameraMode === 'video' ? (
             <button
               className={`create-camera__shutter create-camera__shutter--record${recording ? ' is-recording' : ''}`}
