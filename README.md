@@ -29,6 +29,10 @@ Deploy one Render Web Service to serve both the API and the built frontend. Crea
 
 The API serves the Vite `dist` build and falls back to `index.html` for app navigation, so the service root opens SONRISETALK instead of showing "Cannot GET /". In production, the frontend automatically uses the same origin for API requests and Socket.IO. Configure `CLOUDINARY_URL` and `GEMINI_API_KEY` on the Web Service only if you want media upload and AI features; never expose these server secrets in `VITE_*` variables. To enable SONRISE AI, add `GEMINI_API_KEY` to the Render Web Service's Environment settings and redeploy; the key must belong to a Google AI Studio project with the Gemini API enabled and available quota.
 
+### Background call notifications
+
+Generate a VAPID key pair with `npx web-push generate-vapid-keys`. Add its public and private keys as `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in the Render Web Service's Environment settings, and set `VAPID_SUBJECT` to a contact address such as `mailto:you@example.com`. Keep the private key server-side and never add it to a `VITE_*` variable. Render applies the push-subscription database migration on startup. After redeployment, sign in on each device, open Settings → Notifications, and enable Incoming-call alerts; the browser asks for permission. Notifications can alert and reopen the app, but calls cannot be automatically answered while it is closed. iPhone/iPad users must add the site to the Home Screen, open that installed app, and enable notifications there. Notification sound follows device/browser settings; the in-app ringtone requires the app to be open.
+
 To preserve data from an existing local `project.db`, first deploy the API so its PostgreSQL migrations have completed. Then, on the machine that has the SQLite file, temporarily set `DATABASE_URL` to Render PostgreSQL's **external** connection string and run `npm run db:import-sqlite`. For PowerShell:
 
 ```powershell

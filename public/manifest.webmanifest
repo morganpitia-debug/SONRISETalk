@@ -1,0 +1,17 @@
+{
+  "name": "SONRISETALK",
+  "short_name": "SONRISETALK",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111212",
+  "theme_color": "#111212",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

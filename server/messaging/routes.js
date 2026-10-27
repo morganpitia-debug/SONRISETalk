@@ -659,7 +659,7 @@ router.get('/:conversationId/messages/:messageId/voice-note', async (request, re
         conversation: { members: { some: { userId: request.auth.userId } } },
         voiceNoteAssetId: { not: null },
       },
-      select: { voiceNoteAssetId: true },
+      select: { voiceNoteAssetId: true, voiceNoteMimeType: true },
     })
     if (!message?.voiceNoteAssetId) {
       response.status(404).json({ error: { code: 'VOICE_NOTE_NOT_FOUND', message: 'This voice note is unavailable.' } })
@@ -669,8 +669,10 @@ router.get('/:conversationId/messages/:messageId/voice-note', async (request, re
     response.status(200)
     response.set({
       'Cache-Control': 'private, no-store',
-      'Content-Disposition': 'inline; filename="voice-note.mp3"',
-      'Content-Type': 'audio/mpeg',
+      'Content-Disposition': 'inline; filename="voice-note"',
+      'Content-Type': upstream.headers.get('content-type')?.startsWith('audio/')
+        ? upstream.headers.get('content-type')
+        : message.voiceNoteMimeType || 'audio/mpeg',
       'X-Content-Type-Options': 'nosniff',
     })
     const contentLength = upstream.headers.get('content-length')

@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { configureCloudinary, fetchVoiceNoteFromCloudinary, getMediaUploadError, getVoiceNotePlaybackUrl, getVoiceNoteUploadError, hasValidVoiceNoteSignature, isAllowedMediaType, isAllowedVoiceMimeType } from './mediaService.js'
+import { configureCloudinary, fetchVoiceNoteFromCloudinary, getMediaUploadError, getVoiceNoteOriginalPlaybackUrl, getVoiceNotePlaybackUrl, getVoiceNoteUploadError, hasValidVoiceNoteSignature, isAllowedMediaType, isAllowedVoiceMimeType } from './mediaService.js'
 
 test('Cloudinary configuration accepts a CLOUDINARY_URL', () => {
   const originalUrl = process.env.CLOUDINARY_URL
@@ -45,6 +45,20 @@ test('voice-note playback uses authenticated MP3-only delivery', () => {
   assert.equal(url.hostname, 'res.cloudinary.com')
   assert.match(url.pathname, /\/video\/authenticated\/s--[^/]+--\/ac_mp3,vc_none\//)
   assert.equal(url.pathname.endsWith('.mp3'), true)
+})
+
+test('voice-note playback falls back to original audio when MP3 conversion is unavailable', async (context) => {
+  const requestedUrls = []
+  context.mock.method(globalThis, 'fetch', async (url) => {
+    requestedUrls.push(String(url))
+    if (requestedUrls.length === 1) return new Response('conversion unavailable', { status: 400 })
+    return new Response('audio', { status: 200, headers: { 'content-type': 'audio/webm' } })
+  })
+  const response = await fetchVoiceNoteFromCloudinary('sonrisetalk/test-asset')
+  assert.equal(requestedUrls.length, 2)
+  assert.match(requestedUrls[0], /ac_mp3,vc_none/)
+  assert.equal(requestedUrls[1], getVoiceNoteOriginalPlaybackUrl('sonrisetalk/test-asset'))
+  assert.equal(response.headers.get('content-type'), 'audio/webm')
 })
 
 test('voice-note playback is fetched server-side and provider errors are explicit', async (context) => {

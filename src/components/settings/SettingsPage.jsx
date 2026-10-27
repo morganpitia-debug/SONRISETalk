@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon.jsx'
+import CallNotificationControl from './CallNotificationControl.jsx'
 
 const categories = [
   { group: 'ACCOUNT', items: [{ id: 'privacy', title: 'Privacy', description: 'Control who can see your profile and content.', icon: 'privacy' }, { id: 'account', title: 'Account', description: 'Your name, username and account type.', icon: 'account' }] },
@@ -83,7 +84,7 @@ function ConfirmDialog({ title, description, confirmLabel, onConfirm, onCancel }
 export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme = 'default', onSceneThemeChange, onOpenProfile, isPrivateAccount, onPrivateAccountChange, initialSection = null, onInitialSectionOpened, aiPermissions, onAIPermissionsChange, isAdmin = false, onAdminPromote }) {
   const [section, setSection] = useState(initialSection)
   const [privacy, setPrivacy] = useState({ profile: 'Everyone', content: 'Everyone', mentions: 'People you follow', interactions: 'People you follow' })
-  const [notifications, setNotifications] = useState({ push: true, likes: true, comments: true, messages: true, mentions: true })
+  const [notifications, setNotifications] = useState({ likes: true, comments: true, messages: true, mentions: true })
   const [historyControls, setHistoryControls] = useState({ reels: true, searches: true, profileVisits: true })
   const [securityToggles, setSecurityToggles] = useState({ twoFactor: false })
   const [language, setLanguage] = useState('English')
@@ -183,7 +184,8 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
         </SectionCard>
       case 'notifications':
         return <SectionCard title="Notification preferences">
-          {Object.entries({ push: 'Push notifications', likes: 'Likes', comments: 'Comments', messages: 'Messages', mentions: 'Mentions' }).map(([key, label]) => <SwitchRow key={key} title={label} description={key === 'push' ? 'Allow notifications on this device.' : `Let me know when someone ${key === 'likes' ? 'likes my post' : key === 'comments' ? 'comments on my post' : key === 'messages' ? 'sends me a message' : 'mentions me'}.`} checked={notifications[key]} onChange={(value) => toggleObject(setNotifications, key, value)} />)}
+          <CallNotificationControl />
+          {Object.entries({ likes: 'Likes', comments: 'Comments', messages: 'Messages', mentions: 'Mentions' }).map(([key, label]) => <SwitchRow key={key} title={label} description={`Let me know when someone ${key === 'likes' ? 'likes my post' : key === 'comments' ? 'comments on my post' : key === 'messages' ? 'sends me a message' : 'mentions me'}.`} checked={notifications[key]} onChange={(value) => toggleObject(setNotifications, key, value)} />)}
         </SectionCard>
       case 'language':
         return <SectionCard title="Language"><div className="settings-option-row"><span><strong>Display language</strong><small>Choose a language for SONRISETALK.</small></span><select aria-label="Display language" value={language} onChange={(event) => setLanguage(event.target.value)}>{['English', 'Español', 'Français', 'Deutsch', '日本語'].map((option) => <option key={option}>{option}</option>)}</select></div></SectionCard>

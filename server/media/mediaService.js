@@ -179,26 +179,41 @@ export function getVoiceNotePlaybackUrl(assetId) {
   })
 }
 
+export function getVoiceNoteOriginalPlaybackUrl(assetId) {
+  configureCloudinary()
+  return cloudinary.url(assetId, {
+    resource_type: 'video',
+    type: 'authenticated',
+    sign_url: true,
+    secure: true,
+  })
+}
+
 export async function fetchVoiceNoteFromCloudinary(assetId, options = {}) {
-  let upstream
-  try {
-    upstream = await fetch(getVoiceNotePlaybackUrl(assetId), options)
-  } catch (cause) {
-    const error = new Error('Voice-note storage could not be reached.', { cause })
+  const urls = [getVoiceNotePlaybackUrl(assetId), getVoiceNoteOriginalPlaybackUrl(assetId)]
+  let lastResponse
+  let lastCause
+  for (const url of urls) {
+    try {
+      const upstream = await fetch(url, options)
+      if (upstream.ok && upstream.body) return upstream
+      lastResponse = upstream
+    } catch (cause) {
+      lastCause = cause
+    }
+  }
+
+  if (lastCause && !lastResponse) {
+    const error = new Error('Voice-note storage could not be reached.', { cause: lastCause })
     error.status = 503
     error.code = 'MEDIA_PROVIDER_UNAVAILABLE'
     throw error
   }
-
-  if (!upstream.ok || !upstream.body) {
-    const notFound = upstream.status === 404
-    const error = new Error(notFound ? 'This voice note is unavailable.' : 'Voice-note storage could not provide the recording.')
-    error.status = notFound ? 404 : 503
-    error.code = notFound ? 'VOICE_NOTE_NOT_FOUND' : 'MEDIA_PROVIDER_UNAVAILABLE'
-    throw error
-  }
-
-  return upstream
+  const notFound = lastResponse?.status === 404
+  const error = new Error(notFound ? 'This voice note is unavailable.' : 'Voice-note storage could not provide the recording.')
+  error.status = notFound ? 404 : 503
+  error.code = notFound ? 'VOICE_NOTE_NOT_FOUND' : 'MEDIA_PROVIDER_UNAVAILABLE'
+  throw error
 }
 
 export async function deleteVoiceNoteFromCloudinary(assetId) {

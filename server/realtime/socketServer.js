@@ -5,6 +5,7 @@ import { addOnlineSocket, getOnlineUserIds, isUserOnline, removeOnlineSocket } f
 import { getCallEndStatus, getCallPeerId, isValidCallSignal } from './callPolicy.js'
 import { isAllowedOrigin } from './originPolicy.js'
 import { mediaOwnershipPrefix } from '../media/mediaService.js'
+import { sendIncomingCallPush } from '../push/pushService.js'
 
 const MESSAGE_LIMIT = 4000
 const ACTIVE_CALL_STATUSES = ['ringing', 'connected']
@@ -399,6 +400,7 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           startedAt: call.startedAt.toISOString(),
         }
         io.to(userRoom(recipientId)).emit('call:incoming', data)
+        void sendIncomingCallPush(recipientId, data)
         const timeout = setTimeout(async () => {
           try {
             const expired = await prisma.call.updateMany({

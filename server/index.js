@@ -11,6 +11,7 @@ import aiRoutes from './ai/routes.js'
 import mediaRoutes from './media/routes.js'
 import messagingRoutes from './messaging/routes.js'
 import notificationsRoutes from './notifications/routes.js'
+import pushRoutes from './push/routes.js'
 import { attachSocketServer } from './realtime/socketServer.js'
 import realtimeRoutes from './realtime/routes.js'
 import socialRoutes from './social/routes.js'
@@ -57,6 +58,7 @@ app.use('/api/media', rateLimit({
 }), mediaRoutes)
 app.use('/api/conversations', messagingRoutes)
 app.use('/api/notifications', notificationsRoutes)
+app.use('/api/push', pushRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api', realtimeRoutes)
 app.use('/api', socialRoutes)
