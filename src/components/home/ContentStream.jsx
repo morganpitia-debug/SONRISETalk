@@ -150,9 +150,10 @@ function VideoPost({ post, onOpen }) {
   )
 }
 
-function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, onToggleFollow, onSave, onHide, onViewProfile }) {
+function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, onToggleFollow, onSave, onHide, onDelete, onViewProfile }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
 
   function closeDialog() {
     setDialogMode(null)
@@ -181,8 +182,16 @@ function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, 
           <button type="button" className="post-card__more" aria-label="More options" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}><Icon name="more" size={20} /></button>
           {moreOpen && <div className="post-card__more-menu" role="menu">
             <button type="button" role="menuitem" onClick={() => { onSave(post.id); setMoreOpen(false) }}>{saved ? 'Remove saved post' : 'Save post'}</button>
+            {post.own && <button type="button" role="menuitem" onClick={async () => {
+              if (!window.confirm('Delete this post? This cannot be undone.')) return
+              setDeleteError('')
+              const deleted = await onDelete?.(post)
+              if (deleted) setMoreOpen(false)
+              else setDeleteError('This post could not be deleted.')
+            }}>Delete post</button>}
             {onHide && <button type="button" role="menuitem" onClick={() => { onHide(post.id); setMoreOpen(false) }}>Not interested</button>}
             <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); openDialog('share') }}>Copy or share link</button>
+            {deleteError && <p className="post-card__menu-error" role="alert">{deleteError}</p>}
           </div>}
         </div>
       </div>
@@ -228,7 +237,7 @@ function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, 
   )
 }
 
-export default function ContentStream({ posts, reactions, savedPosts, commentsByPost, followedProfileIds, onReact, onDiscuss, onToggleFollow, onSave, onHide, onLoadMore, onViewProfile, loadingMore, loading }) {
+export default function ContentStream({ posts, reactions, savedPosts, commentsByPost, followedProfileIds, onReact, onDiscuss, onToggleFollow, onSave, onHide, onDelete, onLoadMore, onViewProfile, loadingMore, loading }) {
   const sentinelRef = useRef(null)
 
   useEffect(() => {
@@ -256,6 +265,7 @@ export default function ContentStream({ posts, reactions, savedPosts, commentsBy
               onToggleFollow={() => onToggleFollow?.({ id: post.profileId, name: post.author, username: post.handle, isPrivate: post.isPrivate })}
               onSave={onSave}
               onHide={onHide}
+              onDelete={onDelete}
               onViewProfile={onViewProfile}
             />
           ))}

@@ -17,6 +17,23 @@ function emitAck(socket, event, payload) {
   })
 }
 
+function scheduleCallTone(audioContext, frequencies, startAt, duration) {
+  for (const frequency of frequencies) {
+    const oscillator = audioContext.createOscillator()
+    const envelope = audioContext.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(frequency, startAt)
+    envelope.gain.setValueAtTime(0, startAt)
+    envelope.gain.linearRampToValueAtTime(0.12, startAt + 0.035)
+    envelope.gain.setValueAtTime(0.12, startAt + duration - 0.04)
+    envelope.gain.linearRampToValueAtTime(0, startAt + duration)
+    oscillator.connect(envelope)
+    envelope.connect(audioContext.destination)
+    oscillator.start(startAt)
+    oscillator.stop(startAt + duration + 0.02)
+  }
+}
+
 export default function useCallManager(enabled) {
   const [call, setCall] = useState(null)
   const [localStream, setLocalStream] = useState(null)
@@ -32,6 +49,22 @@ export default function useCallManager(enabled) {
   const candidateQueueRef = useRef([])
   const recoveryTimerRef = useRef(null)
   const recoveryAttemptsRef = useRef(0)
+  const callAudioContextRef = useRef(null)
+
+  const getCallAudioContext = useCallback(() => {
+    if (typeof window === 'undefined') return null
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext
+    if (!AudioContextConstructor) return null
+    if (!callAudioContextRef.current || callAudioContextRef.current.state === 'closed') {
+      callAudioContextRef.current = new AudioContextConstructor()
+    }
+    if (callAudioContextRef.current.state === 'suspended') {
+      callAudioContextRef.current.resume().catch((error) => {
+        console.warn('Call audio could not be enabled by the browser.', error)
+      })
+    }
+    return callAudioContextRef.current
+  }, [])
 
   const updateCall = useCallback((next) => {
     const value = typeof next === 'function' ? next(callRef.current) : next
@@ -55,6 +88,32 @@ export default function useCallManager(enabled) {
     setMuted(false)
     setCameraEnabled(true)
   }, [])
+
+  useEffect(() => {
+    const phase = call?.phase
+    if (phase !== 'incoming' && phase !== 'outgoing') return undefined
+    const audioContext = getCallAudioContext()
+    if (!audioContext) return undefined
+
+    const ring = () => {
+      const startAt = audioContext.currentTime + 0.04
+      if (phase === 'outgoing') {
+        scheduleCallTone(audioContext, [440, 480], startAt, 1.7)
+      } else {
+        scheduleCallTone(audioContext, [659, 880], startAt, 0.22)
+        scheduleCallTone(audioContext, [659, 880], startAt + 0.34, 0.22)
+      }
+    }
+    ring()
+    const interval = window.setInterval(ring, phase === 'incoming' ? 3200 : 4000)
+    return () => {
+      window.clearInterval(interval)
+      if (callAudioContextRef.current === audioContext) callAudioContextRef.current = null
+      audioContext.close().catch((error) => {
+        console.warn('Call audio could not be stopped cleanly.', error)
+      })
+    }
+  }, [call?.id, call?.phase, getCallAudioContext])
 
   const sendSignal = useCallback(async (callId, signal) => {
     const socket = socketRef.current
@@ -215,6 +274,7 @@ export default function useCallManager(enabled) {
 
   const startCall = useCallback(async (conversation, mediaType) => {
     if (!enabled || callRef.current) return
+    getCallAudioContext()
     setCallError('')
     if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
       setCallError('Calling is not supported in this browser.')
@@ -245,11 +305,12 @@ export default function useCallManager(enabled) {
           ? 'The requested microphone or camera was not found.'
           : error.message || 'The call could not be started.')
     }
-  }, [cleanupMedia, enabled, updateCall])
+  }, [cleanupMedia, enabled, getCallAudioContext, updateCall])
 
   const acceptCall = useCallback(async () => {
     const activeCall = callRef.current
     if (!activeCall || activeCall.phase !== 'incoming') return
+    getCallAudioContext()
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -266,7 +327,7 @@ export default function useCallManager(enabled) {
         : error.message || 'The call could not be answered.')
       endCall('failed')
     }
-  }, [createPeer, endCall, updateCall])
+  }, [createPeer, endCall, getCallAudioContext, updateCall])
 
   const declineCall = useCallback(() => endCall('declined'), [endCall])
 

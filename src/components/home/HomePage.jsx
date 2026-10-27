@@ -5,7 +5,7 @@ import { CurrentUserProfile, HomeAIShortcut, SuggestedPeople, StoriesPanel } fro
 import Icon from '../Icon.jsx'
 import ProfilePhotoButton from '../ProfilePhotoButton.jsx'
 import UserAvatar from '../UserAvatar.jsx'
-import { addPostComment, deleteStory, getFeed, getPostComments, getStories, getStoryInsights, markStoryViewed, muteStoryAuthor, searchUsers, setPostLiked, setPostSaved, setStoryLiked } from '../../api/social.js'
+import { addPostComment, deletePost, deleteStory, getFeed, getPostComments, getStories, getStoryInsights, markStoryViewed, muteStoryAuthor, searchUsers, setPostLiked, setPostSaved, setStoryLiked } from '../../api/social.js'
 import { isApiEnabled } from '../../api/auth.js'
 
 function readDeletedLocalStoryIds(userId) {
@@ -191,7 +191,7 @@ function StoryViewer({ story, storySegments, isPaused, isMuted, insightsLoading,
   )
 }
 
-export default function HomePage({ onNavigate, onCreateStory, onReplyStory, onStoryViewed, onSwitchAccount, onViewProfile, followedProfileIds = [], followRequestsSentIds = [], onToggleFollow, onSavePost, savedPostIds = [], currentUser, localPosts = [], localStories = [] }) {
+export default function HomePage({ onNavigate, onCreateStory, onReplyStory, onStoryViewed, onSwitchAccount, onViewProfile, onDeleteLocalPost, followedProfileIds = [], followRequestsSentIds = [], onToggleFollow, onSavePost, savedPostIds = [], currentUser, localPosts = [], localStories = [] }) {
   const usesApi = isApiEnabled()
   const [posts, setPosts] = useState(localPosts)
   const [stories, setStories] = useState(localStories)
@@ -455,6 +455,35 @@ export default function HomePage({ onNavigate, onCreateStory, onReplyStory, onSt
     })
   }
 
+  async function removePost(post) {
+    if (!post.own) return false
+    try {
+      if (usesApi) await deletePost(post.id)
+      else onDeleteLocalPost?.(post.id)
+      setPosts((current) => current.filter((item) => item.id !== post.id))
+      setSavedPosts((current) => {
+        const next = { ...current }
+        delete next[post.id]
+        return next
+      })
+      setReactions((current) => {
+        const next = { ...current }
+        delete next[post.id]
+        return next
+      })
+      setCommentsByPost((current) => {
+        const next = { ...current }
+        delete next[post.id]
+        return next
+      })
+      setFeedError('')
+      return true
+    } catch (error) {
+      setFeedError(error.message || 'This post could not be deleted.')
+      return false
+    }
+  }
+
   return (
     <div className="home-page home-page--social">
       <div className="home-grid">
@@ -473,6 +502,7 @@ export default function HomePage({ onNavigate, onCreateStory, onReplyStory, onSt
             onToggleFollow={onToggleFollow}
             onSave={toggleSaved}
             onHide={(id) => setHiddenPostIds((current) => [...current, id])}
+            onDelete={removePost}
             onLoadMore={loadMore}
             onViewProfile={onViewProfile}
             loading={initialLoading}
