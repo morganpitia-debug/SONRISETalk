@@ -179,23 +179,27 @@ export function getVoiceNotePlaybackUrl(assetId) {
   })
 }
 
-export function getVoiceNoteOriginalPlaybackUrl(assetId) {
+export function getVoiceNoteOriginalPlaybackUrl(assetId, format = null) {
   configureCloudinary()
   return cloudinary.url(assetId, {
     resource_type: 'video',
     type: 'authenticated',
+    ...(typeof format === 'string' && /^[a-z0-9]{2,8}$/i.test(format) ? { format } : {}),
     sign_url: true,
     secure: true,
   })
 }
 
-export async function fetchVoiceNoteFromCloudinary(assetId, options = {}) {
-  const urls = [getVoiceNotePlaybackUrl(assetId), getVoiceNoteOriginalPlaybackUrl(assetId)]
+export async function fetchVoiceNoteFromCloudinary(assetId, { format, ...fetchOptions } = {}) {
+  const urls = [
+    getVoiceNotePlaybackUrl(assetId),
+    getVoiceNoteOriginalPlaybackUrl(assetId, format),
+  ]
   let lastResponse
   let lastCause
   for (const url of urls) {
     try {
-      const upstream = await fetch(url, options)
+      const upstream = await fetch(url, fetchOptions)
       if (upstream.ok && upstream.body) return upstream
       lastResponse = upstream
     } catch (cause) {
@@ -210,9 +214,14 @@ export async function fetchVoiceNoteFromCloudinary(assetId, options = {}) {
     throw error
   }
   const notFound = lastResponse?.status === 404
-  const error = new Error(notFound ? 'This voice note is unavailable.' : 'Voice-note storage could not provide the recording.')
+  const unauthorized = lastResponse?.status === 401 || lastResponse?.status === 403
+  const error = new Error(notFound
+    ? 'This voice note is unavailable.'
+    : unauthorized
+      ? 'Cloudinary denied access to this voice note. Check the server media credentials and authenticated-delivery settings.'
+      : 'Voice-note storage could not provide the recording. Try again later.')
   error.status = notFound ? 404 : 503
-  error.code = notFound ? 'VOICE_NOTE_NOT_FOUND' : 'MEDIA_PROVIDER_UNAVAILABLE'
+  error.code = notFound ? 'VOICE_NOTE_NOT_FOUND' : unauthorized ? 'MEDIA_PROVIDER_AUTH_FAILED' : 'MEDIA_PROVIDER_UNAVAILABLE'
   throw error
 }
 

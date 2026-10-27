@@ -911,7 +911,7 @@ function ChatPanel({ conversation, conversations, messages, reactions, onSend, o
                   ? <p>Message unsent</p>
                   : <>
                     {message.voiceNoteUrl
-                      ? <VoiceNotePlayer src={message.voiceNoteUrl} outgoing={message.from === 'me'} onRefresh={() => onRefreshVoiceNote(conversation.id, message.id)} onError={() => setVoiceStatus('This voice note is unavailable.')} />
+                      ? <VoiceNotePlayer src={message.voiceNoteUrl} outgoing={message.from === 'me'} onRefresh={() => onRefreshVoiceNote(conversation.id, message.id)} onError={(error) => setVoiceStatus(error?.message || 'This voice note is unavailable.')} />
                       : <>
                       {message.imageUrl && <button className="messages-bubble__image-button" type="button" aria-label="View attached image full size" onClick={() => setViewingImage(message.imageUrl)}><img className="messages-bubble__image" src={message.imageUrl} alt="Image attached to message" loading="lazy" /></button>}
                       {message.text && <p>{message.text}</p>}

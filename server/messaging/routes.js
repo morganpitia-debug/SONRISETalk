@@ -659,13 +659,15 @@ router.get('/:conversationId/messages/:messageId/voice-note', async (request, re
         conversation: { members: { some: { userId: request.auth.userId } } },
         voiceNoteAssetId: { not: null },
       },
-      select: { voiceNoteAssetId: true, voiceNoteMimeType: true },
+      select: { voiceNoteAssetId: true, voiceNoteMimeType: true, voiceNoteFormat: true },
     })
     if (!message?.voiceNoteAssetId) {
       response.status(404).json({ error: { code: 'VOICE_NOTE_NOT_FOUND', message: 'This voice note is unavailable.' } })
       return
     }
-    const upstream = await fetchVoiceNoteFromCloudinary(message.voiceNoteAssetId)
+    const upstream = await fetchVoiceNoteFromCloudinary(message.voiceNoteAssetId, {
+      format: message.voiceNoteFormat,
+    })
     response.status(200)
     response.set({
       'Cache-Control': 'private, no-store',

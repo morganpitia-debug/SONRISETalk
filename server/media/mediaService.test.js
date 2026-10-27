@@ -47,18 +47,27 @@ test('voice-note playback uses authenticated MP3-only delivery', () => {
   assert.equal(url.pathname.endsWith('.mp3'), true)
 })
 
-test('voice-note playback falls back to original audio when MP3 conversion is unavailable', async (context) => {
+test('voice-note playback falls back to the original audio format when MP3 conversion is unavailable', async (context) => {
   const requestedUrls = []
   context.mock.method(globalThis, 'fetch', async (url) => {
     requestedUrls.push(String(url))
     if (requestedUrls.length === 1) return new Response('conversion unavailable', { status: 400 })
     return new Response('audio', { status: 200, headers: { 'content-type': 'audio/webm' } })
   })
-  const response = await fetchVoiceNoteFromCloudinary('sonrisetalk/test-asset')
+  const response = await fetchVoiceNoteFromCloudinary('sonrisetalk/test-asset', { format: 'webm' })
   assert.equal(requestedUrls.length, 2)
   assert.match(requestedUrls[0], /ac_mp3,vc_none/)
-  assert.equal(requestedUrls[1], getVoiceNoteOriginalPlaybackUrl('sonrisetalk/test-asset'))
+  assert.equal(requestedUrls[1], getVoiceNoteOriginalPlaybackUrl('sonrisetalk/test-asset', 'webm'))
   assert.equal(response.headers.get('content-type'), 'audio/webm')
+})
+
+test('voice-note playback gives a clear error when Cloudinary denies access', async (context) => {
+  context.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 401 }))
+  await assert.rejects(fetchVoiceNoteFromCloudinary('sonrisetalk/test-asset'), {
+    status: 503,
+    code: 'MEDIA_PROVIDER_AUTH_FAILED',
+    message: /Cloudinary denied access/,
+  })
 })
 
 test('voice-note playback is fetched server-side and provider errors are explicit', async (context) => {
