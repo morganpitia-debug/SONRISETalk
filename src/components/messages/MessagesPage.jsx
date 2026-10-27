@@ -1593,9 +1593,8 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
     return true
   }
 
-  async function refreshVoiceNote(conversationId, messageId) {
-    const { url } = await refreshVoiceNoteUrl(conversationId, messageId)
-    return url
+  function refreshVoiceNote(conversationId, messageId) {
+    return refreshVoiceNoteUrl(conversationId, messageId)
   }
 
   function changeTyping(conversationId, typing) {
