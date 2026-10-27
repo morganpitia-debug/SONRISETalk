@@ -10,9 +10,9 @@ Settings > Appearance lets you choose between the original default background an
 
 The app requires login or signup; guest preview is not available. For local accounts and server-backed social data, configure `VITE_API_URL` in `.env.local` and use the login or signup flow. Backend failures are shown as errors rather than replaced with sample content. Start with `.env.example` as a reference; `.env.local` is ignored by Git. Keep provider credentials out of `VITE_*` variables because Vite exposes those values to browser code.
 
-## SQLite and Prisma
+## PostgreSQL and Prisma
 
-Prisma stores data in `project.db` in the project root. The checked-in migration creates the complete current schema. Initialize it with:
+The API uses PostgreSQL through Prisma's `pg` driver adapter. Set `DATABASE_URL` to the PostgreSQL connection string supplied by your database provider, both locally and in production. Do not commit credentials. Generate and apply the checked-in migrations with:
 
 ```sh
 npm run db:generate
@@ -21,13 +21,21 @@ npm run db:migrate
 npm run db:check
 ```
 
-`db:migrate` applies the checked-in migrations to the configured database; it does not reset or delete data. `db:check` tests that Prisma can connect to the SQLite file.
-
-The database provider is SQLite, using Prisma 7's `better-sqlite3` driver adapter. The generated Prisma client is kept under the ignored `generated/` directory, and `npm run build` regenerates it before compiling the app. The prior migrations were PostgreSQL-specific and have been replaced for new SQLite setups. Existing PostgreSQL database contents are not copied automatically.
+`db:migrate` applies pending migrations to the configured database; it does not reset or delete data. `db:check` verifies PostgreSQL connectivity. The generated Prisma client is kept under the ignored `generated/` directory, and `npm run build` regenerates it before compiling the app.
 
 ## Render deployment
 
-For a Render API Web Service, use `npm ci && npm run build` as the build command and `npm run dev:api` as the start command. Attach a persistent disk mounted at `/var/data` and set `DATABASE_URL` to `file:/var/data/project.db`; this ensures migrations and the API use the same persistent SQLite database. Without this setting, both use `project.db` in the project root. SQLite deployments should run a single API instance.
+For a Render API Web Service, use `npm ci && npm run build` as the build command and `npm run dev:api` as the start command. Create a managed PostgreSQL database and set `DATABASE_URL` to its **internal** connection string in the API service's environment. The API start command applies pending migrations before launching the server. No disk-backed SQLite database is needed.
+
+To preserve data from an existing local `project.db`, first deploy the API so its PostgreSQL migrations have completed. Then, on the machine that has the SQLite file, temporarily set `DATABASE_URL` to Render PostgreSQL's **external** connection string and run `npm run db:import-sqlite`. For PowerShell:
+
+```powershell
+$env:DATABASE_URL = "<Render PostgreSQL external connection string>"
+npm run db:import-sqlite
+Remove-Item Env:DATABASE_URL
+```
+
+The importer reads `SQLITE_SOURCE_PATH` (default `project.db`), preserves row IDs and relationships, and writes all records in a single transaction. It refuses to write if the target PostgreSQL tables are not empty and does not modify the SQLite source. Stop the local app first so SQLite has no uncheckpointed write-ahead log, back up `project.db`, keep the connection string private, and run the importer only once.
 
 ## Cloudinary media
 
@@ -45,7 +53,7 @@ Stories expire 24 hours after creation. In the story viewer, the options menu le
 
 One-to-one voice and video calls use WebRTC for media and authenticated Socket.IO events for invitations, negotiation, and call-state updates. Browsers request microphone or camera access only after the user starts or answers a call. Configure `STUN_URLS` and a production `TURN_URLS` plus server-only `TURN_SHARED_SECRET` for reliable connections across restrictive networks; TURN credentials are short-lived and are returned only to authenticated users. Production deployments must use HTTPS and secure WebSockets. Group calls are not enabled.
 
-Voice notes are recorded with `MediaRecorder`, limited to 20 MB, checked against supported audio signatures, and uploaded as authenticated Cloudinary assets. Playback is proxied through an authenticated API endpoint that verifies conversation membership on every request; the audio bytes are not stored in SQLite or exposed through long-lived Cloudinary URLs. Configure Cloudinary before sending voice notes. Call records and outcomes are stored in SQLite and available from the authenticated call-history API.
+Voice notes are recorded with `MediaRecorder`, limited to 20 MB, checked against supported audio signatures, and uploaded as authenticated Cloudinary assets. Playback is proxied through an authenticated API endpoint that verifies conversation membership on every request; the audio bytes are not stored in the database or exposed through long-lived Cloudinary URLs. Configure Cloudinary before sending voice notes. Call records and outcomes are stored in PostgreSQL and available from the authenticated call-history API.
 
 ## Admin access
 
@@ -55,7 +63,7 @@ Run automated checks with `npm test`. Build and database checks remain `npm run 
 
 ## Run the app with its API
 
-`npm run dev` starts the API, applies pending SQLite migrations, and starts Vite. Open `http://localhost:5173`. The login and signup flows create local SQLite-backed accounts and issue an API session. Select "Save login on this device" to add the account to the device's Switch account list; choose "Add account" there to sign in with another account. Media uploads can be up to 100 MB and must be JPEG, PNG, WebP, GIF, MP4, WebM, or QuickTime. SONRISE AI accepts up to four images (JPEG, PNG, WebP, HEIC, HEIF), PDFs, or TXT/MD/CSV files per message, up to 3 MB each and 12 MB per request. Each request includes the four most recent attachments in the rolling conversation history. AI attachments are sent to Gemini for analysis and are not stored by the app. API secrets are used only by the server. SONRISE AI uses the server-side `GEMINI_API_KEY` through a rate-limited API endpoint. Restart the API after adding or changing the key.
+`npm run dev` starts the API, applies pending PostgreSQL migrations, and starts Vite. Open `http://localhost:5173`. The login and signup flows create PostgreSQL-backed accounts and issue an API session. Select "Save login on this device" to add the account to the device's Switch account list; choose "Add account" there to sign in with another account. Media uploads can be up to 100 MB and must be JPEG, PNG, WebP, GIF, MP4, WebM, or QuickTime. SONRISE AI accepts up to four images (JPEG, PNG, WebP, HEIC, HEIF), PDFs, or TXT/MD/CSV files per message, up to 3 MB each and 12 MB per request. Each request includes the four most recent attachments in the rolling conversation history. AI attachments are sent to Gemini for analysis and are not stored by the app. API secrets are used only by the server. SONRISE AI uses the server-side `GEMINI_API_KEY` through a rate-limited API endpoint. Restart the API after adding or changing the key.
 
 ## Run locally
 

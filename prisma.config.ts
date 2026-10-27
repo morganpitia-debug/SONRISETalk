@@ -3,12 +3,10 @@ import { defineConfig } from 'prisma/config'
 
 dotenv.config({ path: '.env.local' })
 
-process.env.DATABASE_URL ||= 'file:./project.db'
-
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
-    path: 'prisma/migrations',
+    path: 'prisma/postgresql-migrations',
   },
   datasource: {
     url: process.env.DATABASE_URL,
