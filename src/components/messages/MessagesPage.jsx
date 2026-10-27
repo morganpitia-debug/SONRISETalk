@@ -314,6 +314,7 @@ function VoiceNotePlayer({ src, outgoing = false, preview = false, onRefresh, on
   const [currentTime, setCurrentTime] = useState(0)
   const [failed, setFailed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [readyToPlay, setReadyToPlay] = useState(false)
   const [playbackSrc, setPlaybackSrc] = useState(preview ? src : '')
   const refreshedRef = useRef(false)
   const refreshingRef = useRef(false)
@@ -326,6 +327,7 @@ function VoiceNotePlayer({ src, outgoing = false, preview = false, onRefresh, on
     setDuration(0)
     setFailed(false)
     setRefreshing(false)
+    setReadyToPlay(false)
     setPlaybackSrc(preview ? src : '')
     refreshedRef.current = false
     refreshingRef.current = false
@@ -357,6 +359,7 @@ function VoiceNotePlayer({ src, outgoing = false, preview = false, onRefresh, on
       setFailed(false)
       setCurrentTime(0)
       setDuration(0)
+      setReadyToPlay(true)
       return freshUrl
     } catch (error) {
       setFailed(true)
@@ -373,8 +376,12 @@ function VoiceNotePlayer({ src, outgoing = false, preview = false, onRefresh, on
     if (!audio || failed || refreshing) return
     if (audio.paused) {
       try {
-        if (!playbackSrc && onRefresh && !await refreshPlaybackUrl()) return
+        if (!playbackSrc && onRefresh) {
+          await refreshPlaybackUrl()
+          return
+        }
         await audio.play()
+        setReadyToPlay(false)
       } catch {
         void refreshPlaybackUrl()
       }
@@ -400,7 +407,7 @@ function VoiceNotePlayer({ src, outgoing = false, preview = false, onRefresh, on
         onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-        onPlay={() => { setPlaying(true); setFailed(false) }}
+        onPlay={() => { setPlaying(true); setFailed(false); setReadyToPlay(false) }}
         onPause={() => setPlaying(false)}
         onEnded={() => { setPlaying(false); setCurrentTime(0); if (audioRef.current) audioRef.current.currentTime = 0 }}
         onError={(event) => { setPlaying(false); void refreshPlaybackUrl(event.currentTarget.error) }}
@@ -424,7 +431,7 @@ function VoiceNotePlayer({ src, outgoing = false, preview = false, onRefresh, on
           aria-valuetext={`${formatVoiceTime(currentTime)} of ${formatVoiceTime(duration)}`}
           disabled={!duration || failed || refreshing}
         />
-        <span className="messages-voice-player__time">{refreshing ? 'Refreshing…' : failed ? 'Unavailable' : `${formatVoiceTime(currentTime)} / ${formatVoiceTime(duration)}`}</span>
+        <span className="messages-voice-player__time">{refreshing ? 'Loading audio…' : failed ? 'Unavailable' : readyToPlay ? 'Ready · tap to play' : `${formatVoiceTime(currentTime)} / ${formatVoiceTime(duration)}`}</span>
       </div>
     </div>
   )
@@ -734,8 +741,10 @@ function ChatPanel({ conversation, conversations, messages, reactions, onSend, o
         stream.getTracks().forEach((track) => track.stop())
         return
       }
-      const mimeType = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm']
-        .find((type) => window.MediaRecorder.isTypeSupported(type))
+      const mimeType = typeof window.MediaRecorder.isTypeSupported === 'function'
+        ? ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm']
+          .find((type) => window.MediaRecorder.isTypeSupported(type))
+        : undefined
       const recorder = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined)
       voiceChunksRef.current = []
       voiceBytesRef.current = 0
