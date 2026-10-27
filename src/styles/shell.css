@@ -140,6 +140,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright);
 }
 
 .page-transition { position: relative; z-index: 1; display: grid; min-height: 100svh; place-items: center; animation: page-arrive 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.page-loading { color: #aaa7a1; font-size: 14px; }
 .welcome { z-index: 2; width: min(540px, calc(100vw - 64px)); margin: -13px 0 0 42px; text-align: center; }
 .welcome__overline { display: flex; align-items: center; justify-content: center; gap: 11px; margin-bottom: 29px; color: #9e9b96; font: 600 9px/1 'Segoe UI Variable', 'Segoe UI', sans-serif; letter-spacing: 2.3px; }
 .welcome__line { width: 23px; height: 1px; background: var(--orange); box-shadow: 0 0 7px rgba(241, 122, 69, 0.45); }

@@ -41,6 +41,13 @@ app.use((request, response, next) => {
 })
 
 app.use(express.json({ limit: '1mb' }))
+app.get('/', (_request, response) => response.status(200).json({
+  data: {
+    name: 'SONRISETALK API',
+    status: 'ok',
+    health: '/api/health',
+  },
+}))
 app.get('/api/health', (_request, response) => response.status(200).json({ data: { status: 'ok' } }))
 app.use('/api/auth', authRoutes)
 app.use('/api/ai', aiRoutes)

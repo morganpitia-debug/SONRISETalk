@@ -1,29 +1,30 @@
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import BrandMark from './BrandMark.jsx'
 import FloatingNavigation from './FloatingNavigation.jsx'
 import GlassSurface from './GlassSurface.jsx'
 import Icon from './Icon.jsx'
-import DiscoverPage from './discover/DiscoverPage.jsx'
-import CreatePage from './create/CreatePage.jsx'
-import HomePage from './home/HomePage.jsx'
-import MessagesPage from './messages/MessagesPage.jsx'
 import CallOverlay from './messages/CallOverlay.jsx'
 import useCallManager, { CallManagerContext } from '../hooks/useCallManager.js'
 import MoreMenu from './MoreMenu.jsx'
 import MoreDestinationPage from './MoreDestinationPage.jsx'
-import NotificationsPage from './notifications/NotificationsPage.jsx'
-import ProfilePage from './profile/ProfilePage.jsx'
-import SettingsPage from './settings/SettingsPage.jsx'
-import SonriseAIPage from './sonriseAi/SonriseAIPage.jsx'
-import AdminPage from './admin/AdminPage.jsx'
 import PageTransition from './PageTransition.jsx'
 import WordMark from './WordMark.jsx'
 import UnderwaterFishLayer from './UnderwaterFishLayer.jsx'
-import { useCallback, useEffect, useRef, useState } from 'react'
 import { isApiEnabled } from '../api/auth.js'
 import { getMyFollows, getNotifications, getPrivacySettings, markAllNotificationsRead, markNotificationRead, resolveFollowRequest as resolveFollowRequestApi, setFollowed, updatePrivacySettings } from '../api/social.js'
 import { getAdminStatus, promoteToAdmin } from '../api/admin.js'
 import { readAIConversations, saveAIConversations } from '../utils/aiConversationHistory.js'
 import { getConversations } from '../api/messaging.js'
+
+const DiscoverPage = lazy(() => import('./discover/DiscoverPage.jsx'))
+const CreatePage = lazy(() => import('./create/CreatePage.jsx'))
+const HomePage = lazy(() => import('./home/HomePage.jsx'))
+const MessagesPage = lazy(() => import('./messages/MessagesPage.jsx'))
+const NotificationsPage = lazy(() => import('./notifications/NotificationsPage.jsx'))
+const ProfilePage = lazy(() => import('./profile/ProfilePage.jsx'))
+const SettingsPage = lazy(() => import('./settings/SettingsPage.jsx'))
+const SonriseAIPage = lazy(() => import('./sonriseAi/SonriseAIPage.jsx'))
+const AdminPage = lazy(() => import('./admin/AdminPage.jsx'))
 
 function readLocalSavedPostIds(userId) {
   try {
@@ -452,6 +453,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
 
       <CallManagerContext.Provider value={callManager}>
       <PageTransition page={activePage}>
+        <Suspense fallback={<div className="page-loading" role="status">Loading…</div>}>
         {relationshipError && <p className="stream-error" role="alert">{relationshipError}</p>}
         {adminStatusError && <p className="stream-error" role="alert">{adminStatusError}</p>}
         {isHome ? <HomePage onNavigate={onNavigate} onCreateStory={openStoryCreator} onReplyStory={replyToStory} onSwitchAccount={() => navigateToPage('Switch account')} viewedStoryIds={viewedStoryIds} onStoryViewed={markStoryViewed} onViewProfile={showProfile} followedProfileIds={followedProfileIds} onToggleFollow={toggleFollow} onSavePost={toggleLocalSavedPost} savedPostIds={localSavedPostIds} currentUser={{ id: profile.id, name: profile.name, username: profile.username, profilePicture: profile.photo }} localPosts={localPosts} localStories={localStories} /> : isDiscover ? <DiscoverPage onViewProfile={showProfile} followedProfileIds={followedProfileIds} followRequestsSentIds={followRequestsSentIds} onToggleFollow={toggleFollow} localPosts={localPosts} localStories={localStories} currentUser={profile} /> : isMessages ? <MessagesPage onMobileChatChange={setMessagesChatOpen} openProfile={messageProfile} onViewProfile={showProfile} currentUser={{ id: profile.id, name: profile.name, username: profile.username, initials: profile.initials, tone: profile.tone, profilePicture: profile.photo }} /> : isCreate ? <CreatePage initialFormat={createFormat} onCreate={addLocalContent} onNavigate={navigateToPage} currentUser={profile} /> : isProfile ? <ProfilePage profile={profile} onProfileChange={updateCurrentProfile} viewedProfile={viewedProfile} onViewProfile={showProfile} followedProfileIds={followedProfileIds} followRequestsSentIds={followRequestsSentIds} confirmedFollowerIds={effectiveFollowerIds} onToggleFollow={toggleFollow} onMessageProfile={openProfileMessage} openEdit={profileEditRequested} onEditOpened={() => setProfileEditRequested(false)} /> : isNotifications ? <NotificationsPage notifications={notifications} onNotificationsChange={setNotifications} onMarkRead={markRead} onMarkAllRead={markAllRead} onViewProfile={showProfile} onResolveFollowRequest={resolveFollowRequest} onFollowBack={toggleFollow} onMessageProfile={openProfileMessage} isPrivateAccount={privateAccount} isFollowingBack={(profileId) => followedProfileIds.includes(profileId)} loading={notificationsLoading} error={notificationError} /> : isSonriseAI ? <SonriseAIPage conversations={aiConversations} setConversations={setAIConversations} activeConversationId={activeAIConversationId} setActiveConversationId={setActiveAIConversationId} onManagePermissions={openAIPermissions} onBack={() => onNavigate(previousPageRef.current || 'Home')} /> : isSettings ? <SettingsPage profile={profile} theme={theme} onThemeChange={onThemeChange} sceneTheme={sceneTheme} onSceneThemeChange={onSceneThemeChange} onOpenProfile={openProfileEditor} isPrivateAccount={privateAccount} onPrivateAccountChange={changePrivateAccount} initialSection={settingsInitialSection} onInitialSectionOpened={() => setSettingsInitialSection(null)} aiPermissions={aiPermissions} onAIPermissionsChange={setAIPermissions} isAdmin={isAdmin} adminPromotionEnabled={adminPromotionEnabled} onAdminPromote={enableAdminAccess} /> : isAdminPage && isAdmin ? <AdminPage /> : isMoreDestination && !isAdminPage ? <MoreDestinationPage page={activePage} account={profile} savedAccounts={savedAccounts} onSelectAccount={onSelectSavedAccount} onAddAccount={onAddAccount} onViewProfile={showProfile} localPosts={localPosts} savedPostIds={localSavedPostIds} onSaveLocalPost={toggleLocalSavedPost} followedProfileIds={followedProfileIds} onToggleFollow={toggleFollow} onNavigate={navigateToPage} /> : (
@@ -462,6 +464,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
             <div className="welcome__signature"><span className="signature-dot" />HERE, WITH YOU</div>
           </section>
         )}
+        </Suspense>
       </PageTransition>
       </CallManagerContext.Provider>
 

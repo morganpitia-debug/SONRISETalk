@@ -25,7 +25,13 @@ npm run db:check
 
 ## Render deployment
 
-For a Render API Web Service, use `npm ci && npm run build` as the build command and `npm run dev:api` as the start command. Create a managed PostgreSQL database and set `DATABASE_URL` to its **internal** connection string in the API service's environment. The API start command applies pending migrations before launching the server. No disk-backed SQLite database is needed.
+Deploy the API and frontend as separate Render services, and create the managed PostgreSQL database in the same region as the API.
+
+For the API Web Service, use branch `main`, build command `npm ci --include=dev && npm run build`, start command `npm start`, and health check path `/api/health`. Set `DATABASE_URL` to the PostgreSQL database's **internal** connection string. After the Static Site is created, set both `CLIENT_ORIGINS` and `SOCKET_CLIENT_URLS` to its exact HTTPS origin (no trailing slash). The API start command applies pending PostgreSQL migrations before launching the server. No disk-backed SQLite database is needed.
+
+For the Static Site, use branch `main`, build command `npm ci --include=dev && npm run build`, and publish directory `dist`. Set the build-time variable `VITE_API_URL` to the API service's HTTPS origin (no trailing slash). Add a rewrite from `/*` to `/index.html` so app routes load correctly on refresh.
+
+Use the API service's `DATABASE_URL` only on the API. Do not put database credentials, Cloudinary secrets, Gemini keys, or other server secrets into the Static Site's `VITE_*` variables.
 
 To preserve data from an existing local `project.db`, first deploy the API so its PostgreSQL migrations have completed. Then, on the machine that has the SQLite file, temporarily set `DATABASE_URL` to Render PostgreSQL's **external** connection string and run `npm run db:import-sqlite`. For PowerShell:
 
