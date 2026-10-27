@@ -8,8 +8,8 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(self.registration.showNotification(payload.title || 'Incoming call', {
     body: payload.body || 'Open SONRISETALK to answer.',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: payload.tag || 'sonrisetalk-incoming-call',
     renotify: true,
     requireInteraction: true,

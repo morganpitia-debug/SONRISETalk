@@ -12,6 +12,8 @@ test('web client serves the frontend root and application routes without swallow
   await mkdir(path.join(buildDirectory, 'assets'))
   await writeFile(path.join(buildDirectory, 'index.html'), '<div id="root">SONRISETALK</div>')
   await writeFile(path.join(buildDirectory, 'assets', 'app.js'), 'window.appReady = true')
+  await writeFile(path.join(buildDirectory, 'manifest.webmanifest'), '{"name":"SONRISETALK"}')
+  await writeFile(path.join(buildDirectory, 'service-worker.js'), 'self.addEventListener("push", () => {})')
   context.after(() => rm(buildDirectory, { recursive: true, force: true }))
 
   const app = express()
@@ -35,6 +37,15 @@ test('web client serves the frontend root and application routes without swallow
   const asset = await fetch(`${baseUrl}/assets/app.js`)
   assert.equal(asset.status, 200)
   assert.match(await asset.text(), /appReady/)
+
+  const manifest = await fetch(`${baseUrl}/manifest.webmanifest`)
+  assert.equal(manifest.status, 200)
+  assert.match(manifest.headers.get('content-type'), /application\/manifest\+json/)
+  assert.equal(manifest.headers.get('cache-control'), 'no-cache')
+
+  const serviceWorker = await fetch(`${baseUrl}/service-worker.js`)
+  assert.equal(serviceWorker.status, 200)
+  assert.equal(serviceWorker.headers.get('cache-control'), 'no-cache')
 
   const health = await fetch(`${baseUrl}/api/health`)
   assert.equal(health.status, 200)
