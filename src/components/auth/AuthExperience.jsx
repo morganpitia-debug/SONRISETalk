@@ -262,11 +262,10 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated }
     setRecoveryStatus('Checking your face…')
     try {
       const { data } = await recoverWithFace(form.recoveryIdentifier, frame)
-      setRecoveryProfile(data.profile)
       setRecoveryToken(data.token)
       setRecoveryMethod('face')
-      setRecoveryStatus('')
-      setScreen('recovery-profile')
+      setRecoveryStatus('Face matched. Choose a new password.')
+      setScreen('recovery-password')
     } catch (error) {
       setRecoveryStatus(error.message || 'Face verification failed. Try passkey recovery instead.')
     } finally {
@@ -446,8 +445,8 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated }
       </div>}
 
       {screen === 'recovery-password' && <form className="auth-form" onSubmit={submitPasswordReset} noValidate>
-        <button className="auth-back-button" type="button" aria-label="Back to profile confirmation" onClick={() => setScreen('recovery-profile')}><Icon name="back" size={16} /></button>
-        <AuthHeading title="Choose a new password" subtitle={`Your ${recoveryMethod === 'face' ? 'face match' : 'passkey'} verified the account. Choose a password with at least 8 characters.`} />
+        <button className="auth-back-button" type="button" aria-label={recoveryMethod === 'face' ? 'Back to face verification' : 'Back to profile confirmation'} onClick={() => setScreen(recoveryMethod === 'face' ? 'recovery' : 'recovery-profile')}><Icon name="back" size={16} /></button>
+        <AuthHeading title="Choose a new password" subtitle={recoveryMethod === 'face' ? 'Your face matched. Choose a password with at least 8 characters.' : 'Your passkey verified the account. Choose a password with at least 8 characters.'} />
         <div className="auth-password-fields">
           <PasswordInput id="recovery-new-password" label="New password" value={form.resetPassword} onChange={(value) => update('resetPassword', value)} />
           <PasswordInput id="recovery-confirm-password" label="Confirm new password" value={form.resetConfirmPassword} onChange={(value) => update('resetConfirmPassword', value)} />
