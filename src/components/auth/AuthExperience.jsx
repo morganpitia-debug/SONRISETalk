@@ -9,12 +9,10 @@ import {
   isApiEnabled,
   loginAccount,
   registerAccount,
-  recoverWithFace,
   resetPassword,
   verifyPasskeyRecovery,
   verifyPasskeyRegistration,
 } from '../../api/auth.js'
-import FaceChallenge from './FaceChallenge.jsx'
 
 const countryNames = new Intl.DisplayNames(['en'], { type: 'region' })
 const countries = getCountries()
@@ -129,18 +127,16 @@ function validDate(day, month, year) {
 export default function AuthExperience({ theme, onThemeChange, onAuthenticated }) {
   const [screen, setScreen] = useState('login')
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ method: 'email', email: '', phone: '', country: countries.find(({ code }) => code === 'RW') || countries[0], name: '', username: '', day: '', month: '', year: '', photo: '', password: '', confirmPassword: '', loginIdentifier: '', loginPassword: '', recoveryIdentifier: '', resetPassword: '', resetConfirmPassword: '' })
+  const [form, setForm] = useState({ method: 'email', email: '', phone: '', country: countries.find(({ code }) => code === 'RW') || countries[0], name: '', username: '', day: '', month: '', year: '', photo: '', password: '', confirmPassword: '', loginIdentifier: '', loginPassword: '', resetPassword: '', resetConfirmPassword: '' })
   const [errors, setErrors] = useState({})
   const [recoveryStatus, setRecoveryStatus] = useState('')
   const [recoveryProfile, setRecoveryProfile] = useState(null)
   const [recoveryToken, setRecoveryToken] = useState('')
-  const [recoveryMethod, setRecoveryMethod] = useState('')
   const [passkeySetupStatus, setPasskeySetupStatus] = useState('')
   const [authError, setAuthError] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authToken, setAuthToken] = useState('')
   const [authenticatedUser, setAuthenticatedUser] = useState(null)
-  const [faceRecoveryCamera, setFaceRecoveryCamera] = useState(false)
   const apiEnabled = isApiEnabled()
 
   useEffect(() => () => {
@@ -244,42 +240,7 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated }
     setRecoveryProfile(null)
     setRecoveryToken('')
     setRecoveryStatus('')
-    setFaceRecoveryCamera(false)
-    update('recoveryIdentifier', '')
     setScreen('recovery')
-  }
-
-  const handleFaceRecoveryCancel = useCallback((reason) => {
-    setFaceRecoveryCamera(false)
-    if (reason === 'timeout') setRecoveryStatus('The smile check timed out. Try again or use your passkey.')
-    else if (reason === 'error') setRecoveryStatus('The camera check could not start. Check camera access or use your passkey.')
-    else if (reason === 'capture-failed') setRecoveryStatus('The camera frame could not be captured. Try again.')
-  }, [])
-
-  const handleFaceRecoveryCaptured = useCallback(async (frame) => {
-    setFaceRecoveryCamera(false)
-    setAuthSubmitting(true)
-    setRecoveryStatus('Checking your face…')
-    try {
-      const { data } = await recoverWithFace(form.recoveryIdentifier, frame)
-      setRecoveryToken(data.token)
-      setRecoveryMethod('face')
-      setRecoveryStatus('Face matched. Choose a new password.')
-      setScreen('recovery-password')
-    } catch (error) {
-      setRecoveryStatus(error.message || 'Face verification failed. Try passkey recovery instead.')
-    } finally {
-      setAuthSubmitting(false)
-    }
-  }, [form.recoveryIdentifier])
-
-  function startFaceRecovery() {
-    if (!form.recoveryIdentifier.trim()) {
-      setRecoveryStatus('Enter your username, email, or phone number first.')
-      return
-    }
-    setRecoveryStatus('')
-    setFaceRecoveryCamera(true)
   }
 
   async function handlePasskeyRecovery() {
@@ -299,7 +260,6 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated }
       })
       setRecoveryProfile(data.profile)
       setRecoveryToken(data.token)
-      setRecoveryMethod('passkey')
       setRecoveryStatus('')
       setScreen('recovery-profile')
     } catch (error) {
@@ -416,17 +376,10 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated }
       {screen === 'recovery' && <div className="auth-form">
         <button className="auth-back-button" type="button" aria-label="Back to login" onClick={() => setScreen('login')}><Icon name="back" size={16} /></button>
         <div className="auth-brand-mark"><BrandMark size={27} /></div>
-        <AuthHeading title="Recover your account" subtitle="Use your passkey, or try face recovery if you enrolled it while signed in." />
-        {!faceRecoveryCamera && <>
-          <div className="auth-passkey-mark" aria-hidden="true"><Icon name="privacy" size={26} /></div>
-          <p className="auth-verification-note">Your device may use Face ID, Windows Hello, a fingerprint, or its secure PIN. With a passkey, biometric data stays on your device.</p>
-          <button className="auth-primary" type="button" onClick={handlePasskeyRecovery} disabled={authSubmitting || !apiEnabled}>{authSubmitting ? 'Verifying…' : 'Continue with passkey'}</button>
-          <div className="auth-recovery-divider"><span>OR USE ENROLLED FACE</span></div>
-          <label className="auth-field" htmlFor="recovery-identifier"><span>Username, email, or phone</span><input id="recovery-identifier" autoComplete="username" value={form.recoveryIdentifier} onChange={(event) => update('recoveryIdentifier', event.target.value)} /></label>
-          <p className="auth-verification-note">Face recovery uploads a camera frame for matching against your encrypted enrollment. The smile check is not foolproof liveness detection; passkeys are safer.</p>
-          <button className="auth-secondary" type="button" onClick={startFaceRecovery} disabled={authSubmitting || !apiEnabled}>{authSubmitting ? 'Please wait…' : 'Continue with face recovery'}</button>
-        </>}
-        {faceRecoveryCamera && <FaceChallenge onCaptured={handleFaceRecoveryCaptured} onCancel={handleFaceRecoveryCancel} />}
+        <AuthHeading title="Recover your account" subtitle="Use the passkey you registered on this device to verify your account." />
+        <div className="auth-passkey-mark" aria-hidden="true"><Icon name="privacy" size={26} /></div>
+        <p className="auth-verification-note">Your device may use Face ID, Windows Hello, a fingerprint, or its secure PIN. With a passkey, biometric data stays on your device.</p>
+        <button className="auth-primary" type="button" onClick={handlePasskeyRecovery} disabled={authSubmitting || !apiEnabled}>{authSubmitting ? 'Verifying…' : 'Continue with passkey'}</button>
         {recoveryStatus && <p className="auth-notice" role="status">{recoveryStatus}</p>}
         {!apiEnabled && <p className="auth-notice" role="status">Connect the account service to use passkey recovery.</p>}
         <p className="auth-switch">Remember your password? <button type="button" onClick={() => setScreen('login')}>Log in</button></p>
@@ -434,7 +387,7 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated }
 
       {screen === 'recovery-profile' && recoveryProfile && <div className="auth-form auth-success">
         <div className="auth-brand-mark"><BrandMark size={27} /></div>
-        <AuthHeading title="Is this your account?" subtitle={`${recoveryMethod === 'face' ? 'Face matching' : 'Passkey verification'} found this profile. Confirm it before choosing a new password.`} />
+        <AuthHeading title="Is this your account?" subtitle="Passkey verification found this profile. Confirm it before choosing a new password." />
         <div className="auth-recovery-profile">
           <div className="auth-recovery-profile__photo">{recoveryProfile.profilePicture ? <img src={recoveryProfile.profilePicture} alt="" /> : <BrandMark size={34} />}</div>
           <strong>{recoveryProfile.name}</strong>
@@ -445,8 +398,8 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated }
       </div>}
 
       {screen === 'recovery-password' && <form className="auth-form" onSubmit={submitPasswordReset} noValidate>
-        <button className="auth-back-button" type="button" aria-label={recoveryMethod === 'face' ? 'Back to face verification' : 'Back to profile confirmation'} onClick={() => setScreen(recoveryMethod === 'face' ? 'recovery' : 'recovery-profile')}><Icon name="back" size={16} /></button>
-        <AuthHeading title="Choose a new password" subtitle={recoveryMethod === 'face' ? 'Your face matched. Choose a password with at least 8 characters.' : 'Your passkey verified the account. Choose a password with at least 8 characters.'} />
+        <button className="auth-back-button" type="button" aria-label="Back to profile confirmation" onClick={() => setScreen('recovery-profile')}><Icon name="back" size={16} /></button>
+        <AuthHeading title="Choose a new password" subtitle="Your passkey verified the account. Choose a password with at least 8 characters." />
         <div className="auth-password-fields">
           <PasswordInput id="recovery-new-password" label="New password" value={form.resetPassword} onChange={(value) => update('resetPassword', value)} />
           <PasswordInput id="recovery-confirm-password" label="Confirm new password" value={form.resetConfirmPassword} onChange={(value) => update('resetConfirmPassword', value)} />

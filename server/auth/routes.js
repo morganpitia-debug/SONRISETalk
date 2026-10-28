@@ -1,7 +1,6 @@
 import { randomBytes, createHash, randomUUID } from 'node:crypto'
 import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
-import multer from 'multer'
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -12,13 +11,11 @@ import { prisma } from '../db.js'
 import { requireAuth } from './session.js'
 import { createRecoveryToken, hashRecoveryToken, hashPassword, passwordMeetsPolicy, verifyPassword } from './password.js'
 import { createChallengeExpiry, getWebAuthnConfig } from './passkeys.js'
-import { decryptFaceReference, encryptFaceReference, isFaceRecoveryConfigured, verifyFaceFrame } from './faceRecovery.js'
 import { disconnectOtherUserSessions, disconnectSessionConnections } from '../realtime/socketServer.js'
 
 const router = Router()
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000
 const RECOVERY_TOKEN_TTL_MS = 15 * 60 * 1000
-const FACE_IMAGE_LIMIT_BYTES = 768 * 1024
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -26,46 +23,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMITED', message: 'Too many sign-in attempts. Try again later.' } },
 })
-const faceRecoveryLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 5,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: { code: 'FACE_RECOVERY_RATE_LIMITED', message: 'Too many face recovery attempts. Try passkey recovery or try again later.' } },
-})
-const faceImageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: FACE_IMAGE_LIMIT_BYTES, files: 1 },
-  fileFilter: (_request, file, callback) => {
-    if (file.mimetype !== 'image/jpeg') {
-      const error = new Error('Use a JPEG camera image.')
-      error.status = 400
-      error.code = 'INVALID_FACE_IMAGE'
-      callback(error)
-      return
-    }
-    callback(null, true)
-  },
-})
-
-function isValidFaceImage(buffer) {
-  return buffer.length >= 4
-    && buffer[0] === 0xff
-    && buffer[1] === 0xd8
-    && buffer[2] === 0xff
-}
-
-function faceIdentifierWhere(identifier) {
-  const value = typeof identifier === 'string' ? identifier.trim() : ''
-  if (!value) return null
-  return {
-    OR: [
-      { username: value.toLowerCase() },
-      { email: value.toLowerCase() },
-      { phone: value },
-    ],
-  }
-}
 
 function hashSessionToken(token) {
   return createHash('sha256').update(token).digest('hex')
@@ -255,180 +212,6 @@ async function handleResetPassword(request, response, next) {
 
 router.post('/reset-password', authLimiter, handleResetPassword)
 router.post('/confirm-password-reset', authLimiter, handleResetPassword)
-
-router.get('/face-recovery', requireAuth, async (request, response, next) => {
-  try {
-    const enrollment = await prisma.faceRecoveryEnrollment.findUnique({
-      where: { userId: request.auth.userId },
-      select: { id: true },
-    })
-    response.status(200).json({
-      data: {
-        enabled: Boolean(enrollment),
-        available: isFaceRecoveryConfigured(),
-      },
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
-router.post('/face-recovery/enroll', faceRecoveryLimiter, requireAuth, faceImageUpload.single('frame'), async (request, response, next) => {
-  const frame = request.file?.buffer
-  try {
-    if (!isFaceRecoveryConfigured()) {
-      response.status(503).json({ error: { code: 'FACE_RECOVERY_UNAVAILABLE', message: 'Face recovery is not configured.' } })
-      return
-    }
-    if (!frame || !isValidFaceImage(frame)) {
-      response.status(400).json({ error: { code: 'INVALID_FACE_IMAGE', message: 'Capture a valid camera image and try again.' } })
-      return
-    }
-    const password = typeof request.body?.password === 'string' ? request.body.password : ''
-    const user = await prisma.user.findUnique({
-      where: { id: request.auth.userId },
-      select: { id: true, passwordHash: true },
-    })
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
-      response.status(401).json({ error: { code: 'REAUTHENTICATION_REQUIRED', message: 'Enter your current password to enable face recovery.' } })
-      return
-    }
-
-    const imageIsValid = await verifyFaceFrame({
-      userId: user.id,
-      reference: Buffer.from(frame),
-      frame: Buffer.from(frame),
-    })
-    if (!imageIsValid) {
-      response.status(400).json({ error: { code: 'FACE_ENROLLMENT_REJECTED', message: 'A clear live face could not be verified. Try again or keep using passkeys.' } })
-      return
-    }
-
-    const encrypted = encryptFaceReference(frame)
-    await prisma.faceRecoveryEnrollment.upsert({
-      where: { userId: user.id },
-      create: { userId: user.id, ...encrypted },
-      update: encrypted,
-    })
-    response.status(201).json({ data: { enabled: true } })
-  } catch (error) {
-    next(error)
-  } finally {
-    frame?.fill(0)
-  }
-})
-
-router.delete('/face-recovery', requireAuth, async (request, response, next) => {
-  try {
-    const password = typeof request.body?.password === 'string' ? request.body.password : ''
-    const user = await prisma.user.findUnique({
-      where: { id: request.auth.userId },
-      select: { passwordHash: true },
-    })
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
-      response.status(401).json({ error: { code: 'REAUTHENTICATION_REQUIRED', message: 'Enter your current password to disable face recovery.' } })
-      return
-    }
-    await prisma.$transaction(async (tx) => {
-      await tx.faceRecoveryEnrollment.deleteMany({
-        where: { userId: request.auth.userId },
-      })
-      await tx.passwordResetToken.deleteMany({
-        where: { userId: request.auth.userId },
-      })
-    })
-    response.status(204).end()
-  } catch (error) {
-    next(error)
-  }
-})
-
-router.post('/recover-password', faceRecoveryLimiter, faceImageUpload.single('frame'), async (request, response, next) => {
-  const frame = request.file?.buffer
-  let reference
-  try {
-    if (!isFaceRecoveryConfigured()) {
-      response.status(503).json({ error: { code: 'FACE_RECOVERY_UNAVAILABLE', message: 'Face recovery is not configured. Try passkey recovery instead.' } })
-      return
-    }
-    if (!frame || !isValidFaceImage(frame)) {
-      response.status(400).json({ error: { code: 'INVALID_FACE_IMAGE', message: 'Capture a valid camera image and try again.' } })
-      return
-    }
-    const where = faceIdentifierWhere(request.body?.identifier)
-    if (!where) {
-      response.status(400).json({ error: { code: 'INVALID_RECOVERY_REQUEST', message: 'Enter your username, email, or phone number.' } })
-      return
-    }
-
-    const user = await prisma.user.findFirst({
-      where,
-      include: { profile: true, faceRecoveryEnrollment: true },
-    })
-    if (!user?.faceRecoveryEnrollment) {
-      response.status(401).json({ error: { code: 'FACE_VERIFICATION_FAILED', message: 'We could not verify this account. Try passkey recovery instead.' } })
-      return
-    }
-
-    reference = decryptFaceReference(user.faceRecoveryEnrollment)
-    const verified = await verifyFaceFrame({
-      userId: user.id,
-      reference,
-      frame,
-    })
-    reference = null
-    frame.fill(0)
-    if (!verified) {
-      response.status(401).json({ error: { code: 'FACE_VERIFICATION_FAILED', message: 'We could not verify this account. Try passkey recovery instead.' } })
-      return
-    }
-
-    const token = createRecoveryToken()
-    const recoveryEnabled = await prisma.$transaction(async (tx) => {
-      const nextUpdatedAt = new Date(Math.max(
-        Date.now(),
-        user.faceRecoveryEnrollment.updatedAt.getTime() + 1,
-      ))
-      const currentEnrollment = await tx.faceRecoveryEnrollment.updateMany({
-        where: {
-          userId: user.id,
-          id: user.faceRecoveryEnrollment.id,
-          updatedAt: user.faceRecoveryEnrollment.updatedAt,
-        },
-        data: { updatedAt: nextUpdatedAt },
-      })
-      if (currentEnrollment.count !== 1) return false
-      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } })
-      await tx.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashRecoveryToken(token),
-          expiresAt: new Date(Date.now() + RECOVERY_TOKEN_TTL_MS),
-        },
-      })
-      return true
-    })
-    if (!recoveryEnabled) {
-      response.status(401).json({ error: { code: 'FACE_VERIFICATION_FAILED', message: 'We could not verify this account. Try passkey recovery instead.' } })
-      return
-    }
-    response.status(200).json({
-      data: {
-        token,
-        profile: {
-          name: user.profile?.name ?? user.username,
-          username: user.username,
-          profilePicture: user.profile?.profilePicture ?? null,
-        },
-      },
-    })
-  } catch (error) {
-    next(error)
-  } finally {
-    reference?.fill(0)
-    frame?.fill(0)
-  }
-})
 
 router.post('/passkeys/register/options', authLimiter, requireAuth, async (request, response, next) => {
   try {

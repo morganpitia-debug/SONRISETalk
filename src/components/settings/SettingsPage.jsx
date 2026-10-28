@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon.jsx'
 import CallNotificationControl from './CallNotificationControl.jsx'
-import FaceRecoveryEnrollment from './FaceRecoveryEnrollment.jsx'
 import { changePassword, getAccountSessions, revokeAccountSession } from '../../api/auth.js'
 
 const categories = [
@@ -278,7 +277,6 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
                 ['activity', 'Login activity', 'Review recent sign-ins to your account.'],
                 ['devices', 'Devices', 'Review and sign out other active devices.'],
               ].map(([id, label, description]) => <button className="settings-placeholder-row" key={id} type="button" onClick={() => { setSecurityTool(id); setSecurityError(''); setSecurityNotice('') }}><span><strong>{label}</strong><small>{description}</small></span><Icon name="chevron" size={16} /></button>)}
-              <FaceRecoveryEnrollment />
               <div className="settings-two-factor-note"><strong>Two-factor sign-in</strong><small>Not available yet. This setting does not add extra sign-in protection.</small></div>
             </SectionCard>
           </> : <>

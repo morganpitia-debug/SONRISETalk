@@ -23,7 +23,6 @@
     "admin:hash": "node server/admin/createPasswordHash.js"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "^1.2.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@simplewebauthn/browser": "^14.0.0",

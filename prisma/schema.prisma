@@ -49,7 +49,6 @@ model User {
   callsReceived      Call[]                 @relation("CallRecipient")
   passwordResetTokens PasswordResetToken[]
   passkeyCredentials PasskeyCredential[]
-  faceRecoveryEnrollment FaceRecoveryEnrollment?
   webAuthnChallenges WebAuthnChallenge[]
   pushSubscriptions  PushSubscription[]
 
@@ -112,19 +111,6 @@ model PasskeyCredential {
 
   @@index([userId])
   @@map("passkey_credentials")
-}
-
-model FaceRecoveryEnrollment {
-  id                   String   @id @default(uuid())
-  userId               String   @unique @map("user_id")
-  encryptedReference   Bytes    @map("encrypted_reference")
-  initializationVector Bytes    @map("initialization_vector")
-  authenticationTag    Bytes    @map("authentication_tag")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@map("face_recovery_enrollments")
 }
 
 model WebAuthnChallenge {
