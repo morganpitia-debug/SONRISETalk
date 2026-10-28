@@ -26,6 +26,21 @@ export function logoutAccount() {
   return request('/api/auth/logout', { method: 'POST' })
 }
 
+export function changePassword({ currentPassword, newPassword }) {
+  return request('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  })
+}
+
+export function getAccountSessions({ signal } = {}) {
+  return request('/api/auth/sessions', { signal })
+}
+
+export function revokeAccountSession(sessionId) {
+  return request(`/api/auth/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' })
+}
+
 function authenticatedHeaders(token) {
   const authToken = token || getAuthToken()
   return authToken ? { Authorization: `Bearer ${authToken}` } : {}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../Icon.jsx'
 import CallNotificationControl from './CallNotificationControl.jsx'
 import FaceRecoveryEnrollment from './FaceRecoveryEnrollment.jsx'
+import { changePassword, getAccountSessions, revokeAccountSession } from '../../api/auth.js'
 
 const categories = [
   { group: 'ACCOUNT', items: [{ id: 'privacy', title: 'Privacy', description: 'Control who can see your profile and content.', icon: 'privacy' }, { id: 'account', title: 'Account', description: 'Your name, username and account type.', icon: 'account' }] },
@@ -82,12 +83,32 @@ function ConfirmDialog({ title, description, confirmLabel, onConfirm, onCancel }
   )
 }
 
+function describeSessionDevice(userAgent) {
+  if (!userAgent) return 'Device details unavailable'
+  const browser = /Edg\//.test(userAgent) ? 'Microsoft Edge'
+    : /Firefox\//.test(userAgent) ? 'Firefox'
+      : /Chrome\//.test(userAgent) ? 'Google Chrome'
+        : /Safari\//.test(userAgent) ? 'Safari'
+          : 'Unknown browser'
+  const device = /iPhone|iPad/.test(userAgent) ? 'iPhone or iPad'
+    : /Android/.test(userAgent) ? 'Android device'
+      : /Windows/.test(userAgent) ? 'Windows'
+        : /Mac OS/.test(userAgent) ? 'Mac'
+          : /Linux/.test(userAgent) ? 'Linux'
+            : 'Device'
+  return `${browser} on ${device}`
+}
+
+function formatSessionDate(value) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleString()
+}
+
 export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme = 'default', onSceneThemeChange, onOpenProfile, isPrivateAccount, onPrivateAccountChange, initialSection = null, onInitialSectionOpened, aiPermissions, onAIPermissionsChange, isAdmin = false, onAdminPromote }) {
   const [section, setSection] = useState(initialSection)
   const [privacy, setPrivacy] = useState({ profile: 'Everyone', content: 'Everyone', mentions: 'People you follow', interactions: 'People you follow' })
   const [notifications, setNotifications] = useState({ likes: true, comments: true, messages: true, mentions: true })
   const [historyControls, setHistoryControls] = useState({ reels: true, searches: true, profileVisits: true })
-  const [securityToggles, setSecurityToggles] = useState({ twoFactor: false })
   const [language, setLanguage] = useState('English')
   const [history, setHistory] = useState([])
   const [confirmClear, setConfirmClear] = useState(false)
@@ -97,10 +118,80 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
   const [adminPasswordVisible, setAdminPasswordVisible] = useState(false)
   const [adminPromotionError, setAdminPromotionError] = useState('')
   const [adminPromoting, setAdminPromoting] = useState(false)
+  const [securityTool, setSecurityTool] = useState(null)
+  const [securityPassword, setSecurityPassword] = useState({ current: '', next: '', confirm: '' })
+  const [securityBusy, setSecurityBusy] = useState(false)
+  const [securityError, setSecurityError] = useState('')
+  const [securityNotice, setSecurityNotice] = useState('')
+  const [accountSessions, setAccountSessions] = useState([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [sessionsError, setSessionsError] = useState('')
+  const [sessionsRefresh, setSessionsRefresh] = useState(0)
 
   useEffect(() => {
     if (initialSection) onInitialSectionOpened?.()
   }, [initialSection, onInitialSectionOpened])
+
+  useEffect(() => {
+    if (!['activity', 'devices'].includes(securityTool)) return undefined
+    const controller = new AbortController()
+    setSessionsLoading(true)
+    setSessionsError('')
+    getAccountSessions({ signal: controller.signal })
+      .then(({ data }) => {
+        if (!Array.isArray(data?.sessions)) throw new Error('The account service returned an unexpected session list.')
+        setAccountSessions(data.sessions)
+      })
+      .catch((error) => {
+        if (error.name !== 'AbortError') setSessionsError(error.message || 'Account sessions could not load.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSessionsLoading(false)
+      })
+    return () => controller.abort()
+  }, [securityTool, sessionsRefresh])
+
+  async function submitPasswordChange(event) {
+    event.preventDefault()
+    setSecurityError('')
+    setSecurityNotice('')
+    if (securityPassword.next.length < 8) {
+      setSecurityError('Choose a new password with at least 8 characters.')
+      return
+    }
+    if (securityPassword.next !== securityPassword.confirm) {
+      setSecurityError('The new passwords do not match.')
+      return
+    }
+    setSecurityBusy(true)
+    try {
+      const { data } = await changePassword({
+        currentPassword: securityPassword.current,
+        newPassword: securityPassword.next,
+      })
+      setSecurityPassword({ current: '', next: '', confirm: '' })
+      setSecurityNotice(data.message || 'Your password was changed.')
+    } catch (error) {
+      setSecurityError(error.message || 'Your password could not be changed.')
+    } finally {
+      setSecurityBusy(false)
+    }
+  }
+
+  async function signOutSession(sessionId) {
+    setSecurityError('')
+    setSecurityNotice('')
+    setSecurityBusy(true)
+    try {
+      await revokeAccountSession(sessionId)
+      setSessionsRefresh((current) => current + 1)
+      setSecurityNotice('That device has been signed out.')
+    } catch (error) {
+      setSecurityError(error.message || 'That device could not be signed out.')
+    } finally {
+      setSecurityBusy(false)
+    }
+  }
 
   function toggleObject(setter, key, value) {
     setter((current) => ({ ...current, [key]: value }))
@@ -179,11 +270,51 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
           <SwitchRow title="Profile visits" description="Keep a note of profiles you visit." checked={historyControls.profileVisits} onChange={(value) => toggleObject(setHistoryControls, 'profileVisits', value)} />
         </SectionCard>
       case 'security':
-        return <SectionCard title="Account safety">
-          {['Password', 'Login activity', 'Devices'].map((label) => <button className="settings-placeholder-row" key={label} type="button" onClick={() => setNotice(`${label} settings will be available in a future version.`)}><span><strong>{label}</strong><small>Available when account services are connected.</small></span><Icon name="chevron" size={16} /></button>)}
-          <FaceRecoveryEnrollment />
-          <SwitchRow title="Two-factor authentication" description="An extra layer of security. Preview only; no security changes are made." checked={securityToggles.twoFactor} onChange={(value) => toggleObject(setSecurityToggles, 'twoFactor', value)} />
-        </SectionCard>
+        return <div className="settings-security">
+          {!securityTool ? <>
+            <SectionCard title="Account safety">
+              {[
+                ['password', 'Password', 'Change your account password.'],
+                ['activity', 'Login activity', 'Review recent sign-ins to your account.'],
+                ['devices', 'Devices', 'Review and sign out other active devices.'],
+              ].map(([id, label, description]) => <button className="settings-placeholder-row" key={id} type="button" onClick={() => { setSecurityTool(id); setSecurityError(''); setSecurityNotice('') }}><span><strong>{label}</strong><small>{description}</small></span><Icon name="chevron" size={16} /></button>)}
+              <FaceRecoveryEnrollment />
+              <div className="settings-two-factor-note"><strong>Two-factor sign-in</strong><small>Not available yet. This setting does not add extra sign-in protection.</small></div>
+            </SectionCard>
+          </> : <>
+            <button className="settings-back" type="button" onClick={() => { setSecurityTool(null); setSecurityError(''); setSecurityNotice('') }}><Icon name="back" size={16} /> Account safety</button>
+            {securityTool === 'password' && <SectionCard title="Change password">
+              <form className="settings-password-form" onSubmit={submitPasswordChange}>
+                <label><span>Current password</span><input type="password" autoComplete="current-password" maxLength={256} value={securityPassword.current} onChange={(event) => setSecurityPassword((current) => ({ ...current, current: event.target.value }))} required /></label>
+                <label><span>New password</span><input type="password" autoComplete="new-password" minLength={8} maxLength={256} value={securityPassword.next} onChange={(event) => setSecurityPassword((current) => ({ ...current, next: event.target.value }))} required /></label>
+                <label><span>Confirm new password</span><input type="password" autoComplete="new-password" minLength={8} maxLength={256} value={securityPassword.confirm} onChange={(event) => setSecurityPassword((current) => ({ ...current, confirm: event.target.value }))} required /></label>
+                <p className="settings-section-intro">Changing your password signs out other active sessions, but keeps this device signed in.</p>
+                <button className="settings-link-button" type="submit" disabled={securityBusy}>{securityBusy ? 'Updating…' : 'Update password'}</button>
+              </form>
+              {securityNotice && <p className="settings-inline-notice" role="status">{securityNotice}</p>}
+            </SectionCard>}
+            {['activity', 'devices'].includes(securityTool) && <SectionCard title={securityTool === 'activity' ? 'Recent sign-ins' : 'Active devices'}>
+              <p className="settings-section-intro">Browser and device details are based on the sign-in user-agent. IP addresses are not collected here.</p>
+              {sessionsLoading && <p className="settings-empty-history" role="status">Loading account sessions…</p>}
+              {sessionsError && <p className="settings-inline-notice" role="alert">{sessionsError}</p>}
+              {!sessionsLoading && !sessionsError && (() => {
+                const visibleSessions = securityTool === 'devices'
+                  ? accountSessions.filter((session) => session.active)
+                  : accountSessions
+                return visibleSessions.length
+                  ? visibleSessions.map((session) => <div className="settings-session-row" key={session.id}>
+                    <span><strong>{describeSessionDevice(session.userAgent)}{session.isCurrent ? ' · This device' : ''}</strong><small>Signed in {formatSessionDate(session.createdAt)} · {session.active ? 'Active' : session.revokedAt ? `Signed out ${formatSessionDate(session.revokedAt)}` : 'Expired'}</small></span>
+                    {session.active && !session.isCurrent && <button className="settings-danger-button" type="button" disabled={securityBusy} onClick={() => signOutSession(session.id)}>Sign out</button>}
+                  </div>)
+                  : <p className="settings-empty-history">{securityTool === 'devices' ? 'No other active devices.' : 'No sign-in records yet.'}</p>
+              })()}
+              {securityNotice && <p className="settings-inline-notice" role="status">{securityNotice}</p>}
+              {securityTool === 'activity' && !sessionsLoading && accountSessions.length === 30 && <p className="settings-section-intro">Showing the 30 most recent sessions.</p>}
+              {securityTool === 'devices' && !sessionsLoading && <button className="settings-secondary-button" type="button" disabled={securityBusy} onClick={() => setSessionsRefresh((current) => current + 1)}>Refresh devices</button>}
+            </SectionCard>}
+            {securityError && <p className="settings-inline-notice" role="alert">{securityError}</p>}
+          </>}
+        </div>
       case 'notifications':
         return <SectionCard title="Notification preferences">
           <CallNotificationControl />

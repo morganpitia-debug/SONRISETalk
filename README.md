@@ -10,6 +10,8 @@ Settings > Appearance lets you choose between the original default background an
 
 The app requires login or signup; guest preview is not available. Run `npm run dev` to start the frontend and API together. In development, API requests and Socket.IO are proxied to the local API by default, so server-backed accounts, messaging, social features, and notifications work without setting `VITE_API_URL`. Set `VITE_API_URL` in `.env.local` only when connecting the frontend to an API at a different origin. Backend failures are shown as errors rather than replaced with sample content. Start with `.env.example` as a reference; `.env.local` is ignored by Git. Keep provider credentials out of `VITE_*` variables because Vite exposes those values to browser code.
 
+Settings > Security includes password changes, recent sign-in history, and active-device session revocation. Sign-in records store the browser's user-agent string for a device label; the app does not collect IP addresses for this view. Password changes preserve the current session and revoke other active sessions.
+
 ## PostgreSQL and Prisma
 
 The API uses PostgreSQL through Prisma's `pg` driver adapter. Set `DATABASE_URL` to the PostgreSQL connection string supplied by your database provider, both locally and in production. Do not commit credentials. Generate and apply the checked-in migrations with:

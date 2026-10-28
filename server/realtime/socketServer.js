@@ -38,6 +38,21 @@ export function getRealtimeServer() {
   return realtimeServer
 }
 
+export function disconnectSessionConnections(sessionId) {
+  if (!realtimeServer) return
+  for (const socket of realtimeServer.sockets.sockets.values()) {
+    if (socket.data.auth?.sessionId === sessionId) socket.disconnect(true)
+  }
+}
+
+export function disconnectOtherUserSessions(userId, exceptSessionId) {
+  if (!realtimeServer) return
+  for (const socket of realtimeServer.sockets.sockets.values()) {
+    const auth = socket.data.auth
+    if (auth?.userId === userId && auth.sessionId !== exceptSessionId) socket.disconnect(true)
+  }
+}
+
 export function userRoom(userId) {
   return `user:${userId}`
 }

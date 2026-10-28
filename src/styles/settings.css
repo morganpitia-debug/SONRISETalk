@@ -82,6 +82,19 @@ button.settings-placeholder-row { cursor: pointer; }
 .settings-placeholder-row strong { color: #d7d2ca; font-size: 9px; font-weight: 550; }
 .settings-placeholder-row small { color: #7f7b74; font-size: 8px; }
 .settings-placeholder-row > svg { color: #827d75; }
+.settings-security { display: grid; gap: 12px; }
+.settings-password-form { display: grid; gap: 12px; }
+.settings-password-form label { display: grid; gap: 6px; color: #aaa49b; font-size: 9px; }
+.settings-password-form input { width: 100%; min-height: 39px; padding: 0 11px; border: 1px solid rgba(255,255,255,.1); border-radius: 9px; outline: 0; background: #191a1b; color: #f0ece6; font: inherit; font-size: 11px; }
+.settings-password-form input:focus { border-color: rgba(241,122,69,.55); box-shadow: 0 0 0 3px rgba(241,122,69,.08); }
+.settings-password-form .settings-section-intro { margin: 0; }
+.settings-session-row { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.055); }
+.settings-session-row > span { display: grid; min-width: 0; gap: 5px; }
+.settings-session-row strong { color: #d9d4cc; font-size: 9px; font-weight: 550; }
+.settings-session-row small { color: #89847c; font-size: 8px; line-height: 1.45; }
+.settings-two-factor-note { display: grid; gap: 5px; padding: 12px 0 2px; border-top: 1px solid rgba(255,255,255,.055); }
+.settings-two-factor-note strong { color: #aaa49b; font-size: 9px; font-weight: 550; }
+.settings-two-factor-note small { color: #89847c; font-size: 8px; line-height: 1.45; }
 .settings-inline-notice { margin: 12px 0; color: #a99e8e; font-size: 9px; }
 .settings-dialog-backdrop,.more-menu-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; overflow-y: auto; place-items: center; padding: 20px; background: rgba(5,6,7,.67); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); animation: navigation-fade 150ms ease both; }
 .settings-confirm-dialog { width: min(370px,100%); padding: 21px; border: 1px solid rgba(255,255,255,.1); border-radius: 15px; background: linear-gradient(145deg,#242526,#141516); box-shadow: 0 24px 70px rgba(0,0,0,.48); }
@@ -274,6 +287,13 @@ button.settings-placeholder-row { cursor: pointer; }
 :root[data-theme="light"] .settings-face-password { color: #77716a; }
 :root[data-theme="light"] .settings-face-password input { border-color: rgba(50,44,37,.12); background: #faf9f7; color: #38342f; }
 :root[data-theme="light"] .settings-face-notice { color: #77716a; }
+:root[data-theme="light"] .settings-password-form label { color: #77716a; }
+:root[data-theme="light"] .settings-password-form input { border-color: rgba(50,44,37,.12); background: #faf9f7; color: #38342f; }
+:root[data-theme="light"] .settings-session-row { border-color: rgba(50,44,37,.08); }
+:root[data-theme="light"] .settings-session-row strong { color: #38342f; }
+:root[data-theme="light"] .settings-session-row small { color: #77716a; }
+:root[data-theme="light"] .settings-two-factor-note { border-color: rgba(50,44,37,.08); }
+:root[data-theme="light"] .settings-two-factor-note strong,:root[data-theme="light"] .settings-two-factor-note small { color: #77716a; }
 :root[data-theme="light"] .settings-option-row strong,:root[data-theme="light"] .settings-account-field > span,:root[data-theme="light"] .settings-account-field strong,:root[data-theme="light"] .settings-visibility strong,:root[data-theme="light"] .settings-history-item,:root[data-theme="light"] .settings-placeholder-row strong { color: #38342f; }
 :root[data-theme="light"] .settings-option-row small,:root[data-theme="light"] .settings-visibility small,:root[data-theme="light"] .settings-placeholder-row small { color: #77716a; }
 :root[data-theme="light"] .settings-visibility button,:root[data-theme="light"] .settings-theme-choice { border-color: rgba(50,44,37,.1); background: rgba(255,255,255,.72); }

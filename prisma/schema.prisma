@@ -73,6 +73,7 @@ model Session {
   id        String    @id @default(uuid())
   userId    String
   tokenHash String    @unique
+  userAgent String?   @map("user_agent")
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())

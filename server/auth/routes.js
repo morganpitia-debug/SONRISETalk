@@ -13,6 +13,7 @@ import { requireAuth } from './session.js'
 import { createRecoveryToken, hashRecoveryToken, hashPassword, passwordMeetsPolicy, verifyPassword } from './password.js'
 import { createChallengeExpiry, getWebAuthnConfig } from './passkeys.js'
 import { decryptFaceReference, encryptFaceReference, isFaceRecoveryConfigured, verifyFaceFrame } from './faceRecovery.js'
+import { disconnectOtherUserSessions, disconnectSessionConnections } from '../realtime/socketServer.js'
 
 const router = Router()
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000
@@ -70,12 +71,13 @@ function hashSessionToken(token) {
   return createHash('sha256').update(token).digest('hex')
 }
 
-async function createSession(userId) {
+async function createSession(userId, userAgent) {
   const token = randomBytes(32).toString('base64url')
   await prisma.session.create({
     data: {
       userId,
       tokenHash: hashSessionToken(token),
+      userAgent: typeof userAgent === 'string' ? userAgent.slice(0, 512) : null,
       expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
     },
   })
@@ -130,7 +132,7 @@ router.post('/register', authLimiter, async (request, response, next) => {
       },
       include: { profile: true },
     })
-    const token = await createSession(user.id)
+    const token = await createSession(user.id, request.headers['user-agent'])
     response.status(201).json({
       data: {
         token,
@@ -161,7 +163,7 @@ router.post('/login', authLimiter, async (request, response, next) => {
       return
     }
 
-    const token = await createSession(user.id)
+    const token = await createSession(user.id, request.headers['user-agent'])
     response.status(200).json({
       data: {
         token,
@@ -240,6 +242,7 @@ async function handleResetPassword(request, response, next) {
       return
     }
 
+    disconnectOtherUserSessions(user.id)
     response.status(200).json({
       data: {
         message: 'Your password was reset successfully. Sign in with your new password.',
@@ -711,6 +714,113 @@ router.post('/logout', requireAuth, async (request, response, next) => {
       where: { id: request.auth.sessionId },
       data: { revokedAt: new Date() },
     })
+    disconnectSessionConnections(request.auth.sessionId)
+    response.status(204).end()
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.post('/change-password', authLimiter, requireAuth, async (request, response, next) => {
+  try {
+    const currentPassword = typeof request.body?.currentPassword === 'string' ? request.body.currentPassword : ''
+    const newPassword = typeof request.body?.newPassword === 'string' ? request.body.newPassword : ''
+    if (!passwordMeetsPolicy(newPassword)) {
+      response.status(400).json({ error: { code: 'INVALID_NEW_PASSWORD', message: 'Choose a password with at least 8 characters.' } })
+      return
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: request.auth.userId },
+      select: { passwordHash: true },
+    })
+    if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+      response.status(401).json({ error: { code: 'INVALID_CURRENT_PASSWORD', message: 'Your current password is incorrect.' } })
+      return
+    }
+    if (await verifyPassword(newPassword, user.passwordHash)) {
+      response.status(400).json({ error: { code: 'PASSWORD_UNCHANGED', message: 'Choose a password different from your current one.' } })
+      return
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: request.auth.userId },
+        data: { passwordHash: await hashPassword(newPassword) },
+      })
+      await tx.session.updateMany({
+        where: {
+          userId: request.auth.userId,
+          id: { not: request.auth.sessionId },
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      })
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: request.auth.userId },
+      })
+    })
+    disconnectOtherUserSessions(request.auth.userId, request.auth.sessionId)
+    response.status(200).json({
+      data: { message: 'Password changed. Other active sessions have been signed out.' },
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.get('/sessions', requireAuth, async (request, response, next) => {
+  try {
+    const sessions = await prisma.session.findMany({
+      where: { userId: request.auth.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: {
+        id: true,
+        userAgent: true,
+        createdAt: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    })
+    const now = Date.now()
+    response.status(200).json({
+      data: {
+        sessions: sessions.map((session) => ({
+          id: session.id,
+          userAgent: session.userAgent,
+          createdAt: session.createdAt.toISOString(),
+          expiresAt: session.expiresAt.toISOString(),
+          revokedAt: session.revokedAt?.toISOString() ?? null,
+          isCurrent: session.id === request.auth.sessionId,
+          active: session.revokedAt === null && session.expiresAt.getTime() > now,
+        })),
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+router.delete('/sessions/:sessionId', requireAuth, async (request, response, next) => {
+  try {
+    if (request.params.sessionId === request.auth.sessionId) {
+      response.status(400).json({ error: { code: 'CURRENT_SESSION', message: 'Use Log out to end the current session.' } })
+      return
+    }
+    const result = await prisma.session.updateMany({
+      where: {
+        id: request.params.sessionId,
+        userId: request.auth.userId,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    })
+    if (result.count !== 1) {
+      response.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'That active session could not be found.' } })
+      return
+    }
+    disconnectSessionConnections(request.params.sessionId)
     response.status(204).end()
   } catch (error) {
     next(error)
