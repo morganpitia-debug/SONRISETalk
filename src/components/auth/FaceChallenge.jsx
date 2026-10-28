@@ -103,7 +103,18 @@ export default function FaceChallenge({ onCaptured, onCancel }) {
 
   return (
     <div className="face-challenge">
-      <video ref={videoRef} autoPlay muted playsInline aria-label="Camera preview" />
+      <div className="face-challenge__camera">
+        <video ref={videoRef} autoPlay muted playsInline aria-label="Camera preview" />
+        <div className="face-challenge__overlay" aria-hidden="true">
+          <span className="face-challenge__oval" />
+          <span className="face-challenge__scan-line" />
+          <span className="face-challenge__corner face-challenge__corner--top-left" />
+          <span className="face-challenge__corner face-challenge__corner--top-right" />
+          <span className="face-challenge__corner face-challenge__corner--bottom-left" />
+          <span className="face-challenge__corner face-challenge__corner--bottom-right" />
+          <span className="face-challenge__camera-label">LIVE FACE CHECK</span>
+        </div>
+      </div>
       <canvas ref={canvasRef} hidden />
       <p role="status">{status}</p>
       <p className="face-challenge__warning">A smile check is not foolproof liveness detection. Use a passkey whenever possible.</p>

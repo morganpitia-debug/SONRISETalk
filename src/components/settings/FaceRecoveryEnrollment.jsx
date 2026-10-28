@@ -45,6 +45,7 @@ export default function FaceRecoveryEnrollment() {
       setEnabled(true)
       setPassword('')
       setNotice('Face recovery is enabled. Your reference image is encrypted.')
+      window.dispatchEvent(new CustomEvent('sonrisetalk-face-recovery-updated', { detail: { enabled: true } }))
     } catch (error) {
       setNotice(error.message || 'Face recovery could not be enabled.')
     } finally {

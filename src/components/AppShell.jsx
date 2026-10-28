@@ -10,7 +10,7 @@ import MoreDestinationPage from './MoreDestinationPage.jsx'
 import PageTransition from './PageTransition.jsx'
 import WordMark from './WordMark.jsx'
 import UnderwaterFishLayer from './UnderwaterFishLayer.jsx'
-import { isApiEnabled } from '../api/auth.js'
+import { getFaceRecoveryStatus, isApiEnabled } from '../api/auth.js'
 import { getMyFollows, getNotifications, getPrivacySettings, markAllNotificationsRead, markNotificationRead, resolveFollowRequest as resolveFollowRequestApi, setFollowed, updatePrivacySettings } from '../api/social.js'
 import { getAdminStatus, promoteToAdmin } from '../api/admin.js'
 import { readAIConversations, saveAIConversations } from '../utils/aiConversationHistory.js'
@@ -89,6 +89,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminPromotionEnabled, setAdminPromotionEnabled] = useState(false)
   const [adminStatusError, setAdminStatusError] = useState('')
+  const [faceRecoveryPrompt, setFaceRecoveryPrompt] = useState(false)
   const [messageProfile, setMessageProfile] = useState(null)
   const [profileEditRequested, setProfileEditRequested] = useState(false)
   const [settingsInitialSection, setSettingsInitialSection] = useState(null)
@@ -173,6 +174,41 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
       active = false
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', refreshCounts)
+    }
+  }, [authUser?.id, usesApi])
+
+  useEffect(() => {
+    if (!authUser?.id || !usesApi) {
+      setFaceRecoveryPrompt(false)
+      return undefined
+    }
+
+    const dismissedKey = `sonrisetalk-face-recovery-prompt-dismissed-${authUser.id}`
+    try {
+      if (window.localStorage.getItem(dismissedKey) === 'true') {
+        setFaceRecoveryPrompt(false)
+        return undefined
+      }
+    } catch (error) {
+      console.error('Could not read the face recovery prompt preference.', error)
+    }
+
+    let active = true
+    const onEnrollmentUpdated = (event) => {
+      if (event.detail?.enabled) setFaceRecoveryPrompt(false)
+    }
+    setFaceRecoveryPrompt(false)
+    getFaceRecoveryStatus()
+      .then(({ data }) => {
+        if (active) setFaceRecoveryPrompt(data.available && !data.enabled)
+      })
+      .catch((error) => {
+        if (active) console.error('Could not check face recovery availability.', error)
+      })
+    window.addEventListener('sonrisetalk-face-recovery-updated', onEnrollmentUpdated)
+    return () => {
+      active = false
+      window.removeEventListener('sonrisetalk-face-recovery-updated', onEnrollmentUpdated)
     }
   }, [authUser?.id, usesApi])
 
@@ -411,6 +447,21 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
     onNavigate('Settings')
   }
 
+  function openFaceRecoverySettings() {
+    setSettingsInitialSection('security')
+    setMoreOpen(false)
+    onNavigate('Settings')
+  }
+
+  function skipFaceRecoveryPrompt() {
+    try {
+      window.localStorage.setItem(`sonrisetalk-face-recovery-prompt-dismissed-${authUser?.id}`, 'true')
+    } catch (error) {
+      console.error('Could not save the face recovery prompt preference.', error)
+    }
+    setFaceRecoveryPrompt(false)
+  }
+
   const enableAdminAccess = useCallback(async (password) => {
     if (!usesApi) throw new Error('Admin privileges require a server-backed account.')
     const result = await promoteToAdmin(password)
@@ -453,6 +504,13 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
           </GlassSurface>
         </div>
       </header>}
+
+      {faceRecoveryPrompt && !isSettings && !isSonriseAI && <aside className="face-recovery-prompt" aria-label="Face recovery setup" role="status">
+        <span className="face-recovery-prompt__icon"><Icon name="shield" size={18} /></span>
+        <span className="face-recovery-prompt__copy"><strong>Add an optional account recovery method</strong><small>Set up face recovery in Security, or skip this reminder. Passkeys remain the safer option.</small></span>
+        <button className="face-recovery-prompt__setup" type="button" onClick={openFaceRecoverySettings}>Set up</button>
+        <button className="face-recovery-prompt__skip" type="button" onClick={skipFaceRecoveryPrompt}>Skip</button>
+      </aside>}
 
       {!isSonriseAI && <FloatingNavigation activePage={activePage} onNavigate={navigateToPage} expanded={navExpanded} onHoverChange={setNavExpanded} onMoreToggle={() => setMoreOpen((open) => !open)} moreOpen={moreOpen} isAdmin={isAdmin} unreadMessageCount={unreadMessageCount} />}
 

@@ -253,6 +253,12 @@ button.settings-placeholder-row { cursor: pointer; }
 :root[data-theme="light"] .app-shell .underwater-base::before { opacity: .3; }
 :root[data-theme="light"] .topbar .wordmark { color: #272522; }
 :root[data-theme="light"] .topbar .wordmark__light { color: #6f6a63; }
+:root[data-theme="light"] .face-recovery-prompt { border-color: rgba(191,91,48,.22); background: linear-gradient(125deg,rgba(255,251,248,.98),rgba(250,243,238,.98)); box-shadow: 0 16px 48px rgba(48,40,32,.16),0 0 28px rgba(241,122,69,.08),inset 0 1px white; }
+:root[data-theme="light"] .face-recovery-prompt__icon { border-color: rgba(191,91,48,.18); background: rgba(241,122,69,.09); color: #ad5834; }
+:root[data-theme="light"] .face-recovery-prompt__copy strong { color: #302925; }
+:root[data-theme="light"] .face-recovery-prompt__copy small { color: #71635b; }
+:root[data-theme="light"] .face-recovery-prompt__setup { border-color: rgba(191,91,48,.27); background: rgba(241,122,69,.11); color: #914526; }
+:root[data-theme="light"] .face-recovery-prompt__skip { border-color: rgba(50,44,37,.12); color: #655f58; }
 :root[data-theme="light"] .glass-surface,.app-shell[data-theme="light"] .glass-surface { border-color: rgba(36,32,28,.1); background: linear-gradient(145deg,rgba(255,255,255,.92),rgba(244,242,238,.9)); box-shadow: 0 15px 42px rgba(48,40,32,.1),inset 0 1px rgba(255,255,255,.8); }
 :root[data-theme="light"] .floating-navigation { color: #49453f; }
 :root[data-theme="light"] .floating-navigation.is-expanded { background: rgba(255,255,255,.96); box-shadow: 0 18px 55px rgba(46,40,33,.18),inset 0 1px white; }

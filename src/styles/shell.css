@@ -94,6 +94,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright);
 }
 
 .topbar { position: absolute; z-index: 5; top: 36px; right: 48px; left: 50px; display: flex; align-items: center; justify-content: space-between; }
+.face-recovery-prompt { position: fixed; z-index: 12; top: max(88px,calc(env(safe-area-inset-top) + 70px)); left: 50%; display: flex; width: min(690px,calc(100vw - 42px)); min-height: 76px; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid rgba(241,122,69,.25); border-radius: 16px; background: linear-gradient(125deg,rgba(36,23,18,.97),rgba(25,23,22,.97)); box-shadow: 0 16px 48px rgba(0,0,0,.32),0 0 30px rgba(241,122,69,.07),inset 0 1px rgba(255,255,255,.045); transform: translateX(-50%); animation: face-prompt-arrive 260ms ease-out both; }
+.face-recovery-prompt__icon { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border: 1px solid rgba(241,122,69,.22); border-radius: 12px; background: rgba(241,122,69,.09); color: #f5a477; }
+.face-recovery-prompt__copy { display: grid; flex: 1; gap: 4px; }
+.face-recovery-prompt__copy strong { color: #f4ede7; font-size: 11px; font-weight: 600; }
+.face-recovery-prompt__copy small { color: #c1afa4; font-size: 9px; line-height: 1.45; }
+.face-recovery-prompt__setup,.face-recovery-prompt__skip { min-height: 34px; padding: 0 12px; border: 1px solid rgba(255,174,128,.28); border-radius: 9px; background: rgba(241,122,69,.12); color: #ffd0b1; font: inherit; font-size: 9px; font-weight: 600; cursor: pointer; transition: background 150ms ease,border-color 150ms ease; }
+.face-recovery-prompt__setup:hover { border-color: rgba(255,174,128,.6); background: rgba(241,122,69,.2); }
+.face-recovery-prompt__skip { border-color: rgba(255,255,255,.1); background: transparent; color: #aaa9a4; }
+.face-recovery-prompt__skip:hover { border-color: rgba(255,255,255,.24); color: #f0ede7; }
 .wordmark { display: inline-flex; align-items: center; gap: 11px; color: #f4f2ef; text-decoration: none; font: 700 14px/1 'Segoe UI Variable', 'Segoe UI', sans-serif; letter-spacing: 1.6px; }
 .wordmark__symbol { color: var(--orange); filter: drop-shadow(0 0 8px rgba(241, 122, 69, 0.22)); }
 .wordmark__light { color: #a7a5a1; font-weight: 500; }
@@ -181,11 +190,17 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright);
 @keyframes underwater-swim-west { from { transform: translateX(calc(100vw + 150%)) scaleX(-1); } to { transform: translateX(-150%) scaleX(-1); } }
 @keyframes underwater-fish-drift { from { translate: 0 -3px; } to { translate: 0 4px; } }
 @keyframes underwater-rays { from { opacity: 0.55; transform: translateX(-1.5%); } to { opacity: 1; transform: translateX(1.5%); } }
+@keyframes face-prompt-arrive { from { opacity: 0; transform: translate(-50%,-8px); } to { opacity: 1; transform: translate(-50%,0); } }
 
 @media (max-width: 760px) {
   .app-shell { min-height: 100svh; }
   .underwater-fish { width: min(var(--fish-size), 112px); }
   .topbar { top: 23px; right: 21px; left: 21px; }
+  .face-recovery-prompt { top: max(75px,calc(env(safe-area-inset-top) + 62px)); width: calc(100vw - 24px); gap: 8px; padding: 10px; border-radius: 13px; }
+  .face-recovery-prompt__icon { width: 32px; height: 32px; flex-basis: 32px; }
+  .face-recovery-prompt__copy strong { font-size: 9px; }
+  .face-recovery-prompt__copy small { font-size: 8px; }
+  .face-recovery-prompt__setup,.face-recovery-prompt__skip { min-height: 31px; padding: 0 8px; font-size: 8px; }
   .wordmark { gap: 8px; font-size: 12px; letter-spacing: 1.2px; }
   .wordmark__symbol { width: 30px; height: 30px; }
   .topbar__tools { gap: 7px; }
@@ -232,6 +247,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright);
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .face-recovery-prompt { animation: none; }
   .underwater-fish { left: var(--fish-left); animation: none; }
   .underwater-fish__art, .underwater-base::before { animation: none; }
 }
