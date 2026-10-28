@@ -194,7 +194,7 @@ export default function MoreDestinationPage({
           <div><Icon name="story" size={17} /><strong>Share</strong><span>Post updates and short-lived stories.</span></div>
           <div><Icon name="saved" size={17} /><strong>Return</strong><span>Save posts to find them again later.</span></div>
         </div>
-        <p className="more-about__creator">Created by <strong>Morgan Randan</strong> at age <strong>14</strong>.</p>
+        <p className="more-about__creator">Created by <strong>Ishimwe Pitia Morgan</strong> at age <strong>14</strong>.</p>
         <small>Made to give connection and sharing a more thoughtful place.</small>
       </section>}
       {page === 'Switch account' && <section className="settings-section-card switch-account-card">

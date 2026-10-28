@@ -1,7 +1,19 @@
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } from 'node:crypto'
 import { promisify } from 'node:util'
 
 const scrypt = promisify(scryptCallback)
+
+export function passwordMeetsPolicy(password) {
+  return typeof password === 'string' && password.length >= 8 && password.length <= 256
+}
+
+export function createRecoveryToken() {
+  return randomBytes(32).toString('hex')
+}
+
+export function hashRecoveryToken(token) {
+  return createHash('sha256').update(token).digest('hex')
+}
 
 export async function hashPassword(password) {
   const salt = randomBytes(16).toString('hex')

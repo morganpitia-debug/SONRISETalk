@@ -47,6 +47,10 @@ model User {
   reportsReceived    UserReport[]           @relation("UserReportTarget")
   callsInitiated     Call[]                 @relation("CallInitiator")
   callsReceived      Call[]                 @relation("CallRecipient")
+  passwordResetTokens PasswordResetToken[]
+  passkeyCredentials PasskeyCredential[]
+  faceRecoveryEnrollment FaceRecoveryEnrollment?
+  webAuthnChallenges WebAuthnChallenge[]
   pushSubscriptions  PushSubscription[]
 
   @@map("users")
@@ -77,6 +81,63 @@ model Session {
 
   @@index([userId, expiresAt])
   @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, expiresAt], map: "password_reset_tokens_user_id_expires_at_idx")
+  @@index([usedAt, expiresAt], map: "password_reset_tokens_used_at_expires_at_idx")
+  @@map("password_reset_tokens")
+}
+
+model PasskeyCredential {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  credentialId String   @unique @map("credential_id")
+  publicKey    Bytes    @map("public_key")
+  counter      Int      @default(0)
+  transports   String[] @default([])
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+  @@map("passkey_credentials")
+}
+
+model FaceRecoveryEnrollment {
+  id                   String   @id @default(uuid())
+  userId               String   @unique @map("user_id")
+  encryptedReference   Bytes    @map("encrypted_reference")
+  initializationVector Bytes    @map("initialization_vector")
+  authenticationTag    Bytes    @map("authentication_tag")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("face_recovery_enrollments")
+}
+
+model WebAuthnChallenge {
+  id        String    @id @default(uuid())
+  userId    String?   @map("user_id")
+  purpose   String
+  challenge String
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([purpose, expiresAt])
+  @@index([userId, purpose, expiresAt])
+  @@map("webauthn_challenges")
 }
 
 model PushSubscription {

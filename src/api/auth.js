@@ -1,5 +1,5 @@
-export function isApiEnabled() {
-  return import.meta.env.PROD || Boolean(import.meta.env.VITE_API_URL)
+﻿export function isApiEnabled() {
+  return import.meta.env.DEV || import.meta.env.PROD || Boolean(import.meta.env.VITE_API_URL)
 }
 
 export function getAuthToken() {
@@ -24,6 +24,69 @@ export function registerAccount(account) {
 
 export function logoutAccount() {
   return request('/api/auth/logout', { method: 'POST' })
+}
+
+function authenticatedHeaders(token) {
+  const authToken = token || getAuthToken()
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {}
+}
+
+export function getPasskeyRegistrationOptions(token) {
+  return request('/api/auth/passkeys/register/options', {
+    method: 'POST',
+    headers: authenticatedHeaders(token),
+  })
+}
+
+export function verifyPasskeyRegistration({ challengeId, response, token }) {
+  return request('/api/auth/passkeys/register/verify', {
+    method: 'POST',
+    headers: authenticatedHeaders(token),
+    body: JSON.stringify({ challengeId, response }),
+  })
+}
+
+export function getPasskeyRecoveryOptions() {
+  return request('/api/auth/passkeys/recovery/options', { method: 'POST' })
+}
+
+export function verifyPasskeyRecovery({ challengeId, response }) {
+  return request('/api/auth/passkeys/recovery/verify', {
+    method: 'POST',
+    body: JSON.stringify({ challengeId, response }),
+  })
+}
+
+export function resetPassword({ token, password }) {
+  return request('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  })
+}
+
+export function getFaceRecoveryStatus() {
+  return request('/api/auth/face-recovery')
+}
+
+export function enrollFaceRecovery(password, frame) {
+  const body = new FormData()
+  body.set('password', password)
+  body.set('frame', frame, 'face-enrollment.jpg')
+  return request('/api/auth/face-recovery/enroll', { method: 'POST', body })
+}
+
+export function removeFaceRecovery(password) {
+  return request('/api/auth/face-recovery', {
+    method: 'DELETE',
+    body: JSON.stringify({ password }),
+  })
+}
+
+export function recoverWithFace(identifier, frame) {
+  const body = new FormData()
+  body.set('identifier', identifier)
+  body.set('frame', frame, 'face-recovery.jpg')
+  return request('/api/auth/recover-password', { method: 'POST', body })
 }
 
 export async function request(path, { method = 'GET', body, headers = {}, signal, responseType } = {}) {

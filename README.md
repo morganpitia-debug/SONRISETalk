@@ -8,7 +8,7 @@ Settings > Appearance lets you choose between the original default background an
 
 ## Sign in and local development
 
-The app requires login or signup; guest preview is not available. For local accounts and server-backed social data, configure `VITE_API_URL` in `.env.local` and use the login or signup flow. Backend failures are shown as errors rather than replaced with sample content. Start with `.env.example` as a reference; `.env.local` is ignored by Git. Keep provider credentials out of `VITE_*` variables because Vite exposes those values to browser code.
+The app requires login or signup; guest preview is not available. Run `npm run dev` to start the frontend and API together. In development, API requests and Socket.IO are proxied to the local API by default, so server-backed accounts, messaging, social features, and notifications work without setting `VITE_API_URL`. Set `VITE_API_URL` in `.env.local` only when connecting the frontend to an API at a different origin. Backend failures are shown as errors rather than replaced with sample content. Start with `.env.example` as a reference; `.env.local` is ignored by Git. Keep provider credentials out of `VITE_*` variables because Vite exposes those values to browser code.
 
 ## PostgreSQL and Prisma
 
@@ -22,6 +22,33 @@ npm run db:check
 ```
 
 `db:migrate` applies pending migrations to the configured database; it does not reset or delete data. `db:check` verifies PostgreSQL connectivity. The generated Prisma client is kept under the ignored `generated/` directory, and `npm run build` regenerates it before compiling the app.
+
+## Password recovery with passkeys
+
+Forgot password opens a recovery page that does not ask for an account identifier. The user proves account ownership with a previously registered passkey, confirms the profile shown after verification, and then chooses a new password. The biometric itself stays on the user's device; the server verifies the passkey's cryptographic response. Depending on the device, the prompt may use Face ID, Windows Hello, a fingerprint, or the device PIN.
+
+Users must set up a passkey while signed in before this recovery method can work. The app offers setup after signup and login. Existing accounts must sign in once and register a passkey. Passkeys are device/provider credentials: users should enroll another device or another authenticator when available so they do not lose access if one device is lost.
+
+For local development, the allowed origins default to `CLIENT_ORIGINS`. In production, set the server-only `WEBAUTHN_ORIGINS` to the exact HTTPS origin(s) that serve the app, comma-separated, for example `https://sonrisetalk.example.com`. Do not include a path or trailing slash. Passkeys require HTTPS except on localhost.
+
+## Optional face recovery
+
+Face recovery is an opt-in alternative, not a replacement for passkeys. A signed-in user enrolls in Settings > Security after confirming their current password. The JPEG reference is encrypted with AES-256-GCM before it is stored in PostgreSQL; password recovery accepts a username, email, or phone, runs a five-second MediaPipe smile-expression check in the browser, then verifies the captured frame with a private FastAPI/DeepFace service using Facenet512 and `enforce_detection=True`. A successful match creates the same short-lived, single-use password-reset token used by passkey recovery. No raw image is intentionally written to application storage; image uploads are kept under the multipart in-memory threshold and cleared from buffers after processing.
+
+The smile challenge and face comparison are not foolproof liveness checks or proof of legal identity. A smile blendshape can be spoofed, face matching can produce false results, and image uploads are sensitive biometric data. The interface describes these limitations; users should prefer passkeys. No email/SMS fallback is implemented because the app does not yet verify contact ownership. Face recovery is unavailable until both services are configured.
+
+For local development, use Python 3.11 for the face service, install its dependencies, and run it alongside `npm run dev`:
+
+```powershell
+py -3.11 -m venv .venv-face
+.\.venv-face\Scripts\Activate.ps1
+python -m pip install -r face-verification\requirements.txt
+python -m uvicorn main:app --app-dir face-verification --host 127.0.0.1 --port 8000
+```
+
+Set `FACE_RECOVERY_ENCRYPTION_KEY` to a stable 32-byte base64 key and `FACE_VERIFICATION_SERVICE_TOKEN` to a random secret of at least 32 characters in `.env.local`; use the same service token for both processes. For example, generate values with Node's `crypto.randomBytes(32).toString('base64')` and `crypto.randomBytes(32).toString('base64url')`. Do not commit these values. The encryption key must remain stable or enrolled references become unreadable. Keep `FACE_VERIFICATION_SERVICE_URL` private and point it at the Python service.
+
+For deployment, run `face-verification` as a separate private Python 3.11 web service with build command `pip install -r face-verification/requirements.txt`, start command `uvicorn main:app --app-dir face-verification --host 0.0.0.0 --port $PORT`, and health check `/health`. Set the three `FACE_*` environment variables on the Node API service, using its private service URL and the shared service token. Keep the Python service off the public internet where the hosting platform supports private networking. The first face request downloads the DeepFace model weights, so allow time and memory for model initialization. Apply database migrations with `npm run db:migrate` before using face recovery.
 
 ## Render deployment
 

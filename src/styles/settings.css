@@ -34,6 +34,11 @@
 .settings-visibility strong { color: #dfdad2; font-size: 10px; font-weight: 600; }
 .settings-visibility small { color: #858079; font-size: 8px; line-height: 1.45; }
 .settings-option-row { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 18px; padding: 9px 0; border-top: 1px solid rgba(255,255,255,.055); }
+.face-recovery-enrollment { display: grid; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,.055); }
+.settings-face-password { display: grid; gap: 7px; color: #aaa49b; font-size: 9px; }
+.settings-face-password input { width: 100%; min-height: 38px; padding: 0 11px; border: 1px solid rgba(255,255,255,.1); border-radius: 9px; outline: 0; background: #191a1b; color: #f0ece6; font: inherit; font-size: 11px; }
+.settings-face-password input:focus { border-color: rgba(241,122,69,.62); }
+.settings-face-notice { margin: 0; color: #aaa49b; font-size: 10px; line-height: 1.5; }
 .settings-option-row > span { display: grid; min-width: 0; gap: 4px; }
 .settings-option-row strong,.settings-account-field > span { color: #d9d4cc; font-size: 9px; font-weight: 550; }
 .settings-option-row small { color: #7f7b74; font-size: 8px; line-height: 1.4; }
@@ -259,6 +264,10 @@ button.settings-placeholder-row { cursor: pointer; }
 :root[data-theme="light"] .settings-category__icon { border-color: rgba(241,122,69,.23); background: rgba(241,122,69,.08); }
 :root[data-theme="light"] .settings-back,:root[data-theme="light"] .settings-secondary-button { border-color: rgba(50,44,37,.12); background: rgba(255,255,255,.68); color: #544e47; }
 :root[data-theme="light"] .settings-option-row { border-color: rgba(50,44,37,.08); }
+:root[data-theme="light"] .face-recovery-enrollment { border-color: rgba(50,44,37,.08); }
+:root[data-theme="light"] .settings-face-password { color: #77716a; }
+:root[data-theme="light"] .settings-face-password input { border-color: rgba(50,44,37,.12); background: #faf9f7; color: #38342f; }
+:root[data-theme="light"] .settings-face-notice { color: #77716a; }
 :root[data-theme="light"] .settings-option-row strong,:root[data-theme="light"] .settings-account-field > span,:root[data-theme="light"] .settings-account-field strong,:root[data-theme="light"] .settings-visibility strong,:root[data-theme="light"] .settings-history-item,:root[data-theme="light"] .settings-placeholder-row strong { color: #38342f; }
 :root[data-theme="light"] .settings-option-row small,:root[data-theme="light"] .settings-visibility small,:root[data-theme="light"] .settings-placeholder-row small { color: #77716a; }
 :root[data-theme="light"] .settings-visibility button,:root[data-theme="light"] .settings-theme-choice { border-color: rgba(50,44,37,.1); background: rgba(255,255,255,.72); }

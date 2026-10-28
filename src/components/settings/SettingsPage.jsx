@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../Icon.jsx'
 import CallNotificationControl from './CallNotificationControl.jsx'
+import FaceRecoveryEnrollment from './FaceRecoveryEnrollment.jsx'
 
 const categories = [
   { group: 'ACCOUNT', items: [{ id: 'privacy', title: 'Privacy', description: 'Control who can see your profile and content.', icon: 'privacy' }, { id: 'account', title: 'Account', description: 'Your name, username and account type.', icon: 'account' }] },
@@ -180,6 +181,7 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
       case 'security':
         return <SectionCard title="Account safety">
           {['Password', 'Login activity', 'Devices'].map((label) => <button className="settings-placeholder-row" key={label} type="button" onClick={() => setNotice(`${label} settings will be available in a future version.`)}><span><strong>{label}</strong><small>Available when account services are connected.</small></span><Icon name="chevron" size={16} /></button>)}
+          <FaceRecoveryEnrollment />
           <SwitchRow title="Two-factor authentication" description="An extra layer of security. Preview only; no security changes are made." checked={securityToggles.twoFactor} onChange={(value) => toggleObject(setSecurityToggles, 'twoFactor', value)} />
         </SectionCard>
       case 'notifications':
