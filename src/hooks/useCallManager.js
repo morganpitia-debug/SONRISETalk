@@ -3,6 +3,13 @@ import { createRealtimeSocket, getIceServers } from '../api/messaging.js'
 
 export const CallManagerContext = createContext(null)
 
+const CALL_AUDIO_CONSTRAINTS = {
+  echoCancellation: { ideal: true },
+  noiseSuppression: { ideal: true },
+  autoGainControl: { ideal: true },
+  channelCount: { ideal: 1 },
+}
+
 function emitAck(socket, event, payload) {
   return new Promise((resolve, reject) => {
     socket.timeout(10000).emit(event, payload, (error, result) => {
@@ -282,7 +289,7 @@ export default function useCallManager(enabled) {
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: CALL_AUDIO_CONSTRAINTS,
         video: mediaType === 'video',
       })
       localStreamRef.current = stream
@@ -313,7 +320,7 @@ export default function useCallManager(enabled) {
     getCallAudioContext()
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: CALL_AUDIO_CONSTRAINTS,
         video: activeCall.mediaType === 'video',
       })
       localStreamRef.current = stream
