@@ -315,6 +315,7 @@ export default function useCallManager(enabled, currentUserId) {
         phase: 'active',
         acceptedAt: activeCall.acceptedAt || new Date().toISOString(),
         currentUserId,
+        invitedPeople: credentials.invitations ?? activeCall.invitedPeople ?? [],
       })
     } catch (error) {
       if (groupRoomRef.current === room) groupRoomRef.current = null
@@ -391,6 +392,22 @@ export default function useCallManager(enabled, currentUserId) {
       connection.on('call:activity', (event) => {
         if (callRef.current?.id !== event?.callId || !event.activity) return
         setCallActivities((current) => [...current.slice(-99), event])
+      })
+      connection.on('call:participant-joined', ({ callId, participant }) => {
+        const activeCall = callRef.current
+        if (activeCall?.id !== callId || !participant?.userId) return
+        updateCall({
+          ...activeCall,
+          invitedPeople: (activeCall.invitedPeople ?? []).filter((person) => person.userId !== participant.userId),
+        })
+      })
+      connection.on('call:group-declined', ({ callId, userId: declinedUserId }) => {
+        const activeCall = callRef.current
+        if (activeCall?.id !== callId || !declinedUserId) return
+        updateCall({
+          ...activeCall,
+          invitedPeople: (activeCall.invitedPeople ?? []).filter((person) => person.userId !== declinedUserId),
+        })
       })
       connection.on('call:ended', ({ callId, status }) => {
         if (callRef.current?.id !== callId) return
@@ -560,6 +577,23 @@ export default function useCallManager(enabled, currentUserId) {
     setCallActivities((current) => [...current.slice(-99), result.activity])
   }, [])
 
+  const invitePeople = useCallback(async (userIds) => {
+    const activeCall = callRef.current
+    const socket = socketRef.current
+    if (!activeCall || activeCall.callMode !== 'group' || activeCall.phase !== 'active' || !socket?.connected) {
+      throw new Error('You can invite people after joining an active group call.')
+    }
+    const result = await emitAck(socket, 'call:group-invite', { callId: activeCall.id, userIds })
+    updateCall({
+      ...callRef.current,
+      invitedPeople: [
+        ...(callRef.current?.invitedPeople ?? []).filter((person) => !result.invited.some((invite) => invite.userId === person.userId)),
+        ...result.invited,
+      ],
+    })
+    return result.invited
+  }, [updateCall])
+
   const stopScreenShare = useCallback(async () => {
     if (groupRoomRef.current) {
       await groupRoomRef.current.localParticipant.setScreenShareEnabled(false)
@@ -650,5 +684,6 @@ export default function useCallManager(enabled, currentUserId) {
     toggleCamera,
     toggleScreenShare,
     sendCallActivity,
+    invitePeople,
   }
 }

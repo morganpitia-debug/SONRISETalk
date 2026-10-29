@@ -11,7 +11,9 @@ const credentialLifetimeSeconds = Number(process.env.TURN_CREDENTIAL_LIFETIME_SE
 const livekitUrl = process.env.LIVEKIT_URL?.trim()
 const livekitApiKey = process.env.LIVEKIT_API_KEY?.trim()
 const livekitApiSecret = process.env.LIVEKIT_API_SECRET?.trim()
-const livekitConfigured = Boolean(livekitUrl && livekitApiKey && livekitApiSecret)
+const livekitValuesPresent = [livekitUrl, livekitApiKey, livekitApiSecret].filter(Boolean).length
+const livekitUrlValid = !livekitUrl || /^wss?:\/\//i.test(livekitUrl)
+const livekitConfigured = livekitValuesPresent === 3 && livekitUrlValid
 
 if (turnUrls.length && !turnSharedSecret) {
   throw new Error('TURN_SHARED_SECRET is required when TURN_URLS is configured.')
@@ -19,11 +21,10 @@ if (turnUrls.length && !turnSharedSecret) {
 if (!Number.isInteger(credentialLifetimeSeconds) || credentialLifetimeSeconds < 60) {
   throw new Error('TURN_CREDENTIAL_LIFETIME_SECONDS must be an integer of at least 60.')
 }
-if ([livekitUrl, livekitApiKey, livekitApiSecret].some(Boolean) && !livekitConfigured) {
-  throw new Error('LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET must be configured together.')
-}
-if (livekitUrl && !/^wss?:\/\//i.test(livekitUrl)) {
-  throw new Error('LIVEKIT_URL must use ws:// or wss://.')
+if (livekitValuesPresent > 0 && livekitValuesPresent < 3) {
+  console.error('LiveKit group calls are disabled until LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET are all set.')
+} else if (livekitValuesPresent === 3 && !livekitUrlValid) {
+  console.error('LiveKit group calls are disabled because LIVEKIT_URL must use ws:// or wss://.')
 }
 
 export const config = {

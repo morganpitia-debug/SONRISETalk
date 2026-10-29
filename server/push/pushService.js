@@ -21,7 +21,9 @@ export async function sendIncomingCallPush(userId, call) {
     configureWebPush(configuration)
     const payload = JSON.stringify({
       title: `${call.caller.name} is calling`,
-      body: `Incoming ${call.mediaType} call`,
+      body: call.callMode === 'group'
+        ? `Incoming group ${call.mediaType} call${call.groupName ? ` · ${call.groupName}` : ''}`
+        : `Incoming ${call.mediaType} call`,
       tag: `incoming-call-${call.id}`,
       data: { callId: call.id, url: '/' },
     })

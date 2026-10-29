@@ -10,6 +10,10 @@ export function getConversations({ signal } = {}) {
   return requestData('/api/conversations', { signal })
 }
 
+export function getCallHistory({ signal } = {}) {
+  return requestData('/api/calls/history', { signal })
+}
+
 export function createConversation(participantIds, group = null) {
   return requestData('/api/conversations', {
     method: 'POST',

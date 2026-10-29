@@ -6,14 +6,22 @@ function applicationServerKeyToBytes(value) {
   return Uint8Array.from(window.atob(padded), (character) => character.charCodeAt(0))
 }
 
-export default function CallNotificationControl() {
+export default function CallNotificationControl({ prompt = false, userId = '', onDismiss }) {
   const [supported, setSupported] = useState(false)
   const [enabled, setEnabled] = useState(false)
   const [working, setWorking] = useState(false)
   const [message, setMessage] = useState('')
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
     let active = true
+    if (prompt && userId) {
+      try {
+        setDismissed(window.localStorage.getItem(`sonrisetalk-call-notice-dismissed-${userId}`) === 'true')
+      } catch (error) {
+        console.error('Could not read the call-notification prompt preference.', error)
+      }
+    }
     async function readStatus() {
       const available = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
       if (!active) return
@@ -33,7 +41,7 @@ export default function CallNotificationControl() {
     }
     void readStatus()
     return () => { active = false }
-  }, [])
+  }, [prompt, userId])
 
   async function enable() {
     setWorking(true)
@@ -83,6 +91,35 @@ export default function CallNotificationControl() {
     } finally {
       setWorking(false)
     }
+  }
+
+  function dismissPrompt() {
+    try {
+      if (userId) window.localStorage.setItem(`sonrisetalk-call-notice-dismissed-${userId}`, 'true')
+      setDismissed(true)
+      onDismiss?.()
+    } catch (error) {
+      setMessage(error.message || 'The notification prompt preference could not be saved.')
+    }
+  }
+
+  if (prompt) {
+    if (!supported || enabled || dismissed) return null
+    return (
+      <aside className="call-notification-prompt" aria-label="Incoming call notifications">
+        <div>
+          <strong>Don’t miss a call</strong>
+          <p>{Notification.permission === 'denied'
+            ? 'Notifications are blocked for this site. Allow them in your browser settings to receive call alerts while SONRISETALK is closed.'
+            : 'Turn on call alerts for this device. Your browser will ask for permission when you continue. On iPhone, install SONRISETALK to your Home Screen first.'}</p>
+          {message && <small role="alert">{message}</small>}
+        </div>
+        <div className="call-notification-prompt__actions">
+          {Notification.permission !== 'denied' && <button type="button" disabled={working} onClick={enable}>{working ? 'Enabling…' : 'Enable alerts'}</button>}
+          <button type="button" disabled={working} onClick={dismissPrompt}>Not now</button>
+        </div>
+      </aside>
+    )
   }
 
   return (

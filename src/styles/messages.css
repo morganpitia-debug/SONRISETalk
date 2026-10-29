@@ -158,6 +158,17 @@
 .messages-bubble__reply-preview { display: grid; max-width: min(350px,100%); gap: 3px; margin: 0 0 -5px; padding: 7px 9px 9px; border-left: 2px solid rgba(241,122,69,.55); border-radius: 7px 7px 0 0; background: rgba(241,122,69,.07); }
 .messages-bubble__reply-preview strong { color: #d29c78; font-size: 8px; font-weight: 600; }
 .messages-bubble__reply-preview span { overflow: hidden; max-width: 100%; color: #aaa49b; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.messages-missed-call { display: grid; width: min(320px,85%); align-self: center; gap: 11px; padding: 13px; border: 1px solid rgba(239,120,98,.19); border-radius: 13px; background: linear-gradient(145deg,rgba(49,35,34,.72),rgba(29,27,27,.88)); box-shadow: 0 8px 22px rgba(0,0,0,.12); }
+.messages-missed-call__summary { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.messages-missed-call__icon { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border: 1px solid rgba(239,120,98,.2); border-radius: 10px; background: rgba(239,120,98,.1); color: #f08e7a; }
+.messages-missed-call__summary > div { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.messages-missed-call__summary strong { color: #f1e7e2; font-size: 11px; font-weight: 650; }
+.messages-missed-call__summary span { overflow: hidden; color: #aaa19a; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.messages-missed-call__summary time { flex: 0 0 auto; color: #817a75; font-size: 8px; }
+.messages-missed-call__callback { display: flex; min-height: 34px; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgba(241,122,69,.24); border-radius: 9px; background: rgba(241,122,69,.12); color: #f3b18d; font: inherit; font-size: 10px; font-weight: 650; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; }
+.messages-missed-call__callback:hover:not(:disabled) { border-color: rgba(241,122,69,.48); background: rgba(241,122,69,.2); }
+.messages-missed-call__callback:focus-visible { outline: 2px solid #f0b28d; outline-offset: 2px; }
+.messages-missed-call__callback:disabled { opacity: .48; cursor: not-allowed; }
 .messages-bubble-actions { position: relative; display: flex; align-items: center; gap: 2px; margin-top: 3px; }
 .messages-bubble-action { display: grid; width: 25px; height: 24px; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #817c74; cursor: pointer; transition: 140ms ease; }
 .messages-bubble-action:hover,.messages-bubble-action.is-reacted { border-color: rgba(255,255,255,.08); background: rgba(255,255,255,.045); color: #e5b090; }
@@ -249,7 +260,7 @@
 .messages-call-card.is-video .messages-call-info p { color: #fff; }
 .messages-call-card.is-video .messages-call-controls { margin-top: auto; }
 .messages-call-card.is-group { background: radial-gradient(ellipse at 50% 30%,#272827,#101112 70%); }
-.messages-call-card.is-group .messages-call-info { z-index: 3; align-self: flex-start; flex: 0 0 auto; align-items: flex-start; justify-content: flex-start; padding: 0; text-align: left; text-shadow: 0 2px 8px #000; }
+.messages-call-card.is-group .messages-call-info { z-index: 3; width: min(100%,calc(100% - 130px)); align-self: flex-start; flex: 0 0 auto; align-items: flex-start; justify-content: flex-start; padding: 0; text-align: left; text-shadow: 0 2px 8px #000; }
 .messages-call-card.is-group .messages-call-avatar { display: none; }
 .messages-call-card.is-group .messages-call-info h2 { font-size: 17px; }
 .messages-call-card.is-group .messages-call-info p { color: #fff; }
@@ -262,6 +273,33 @@
 .messages-call-participants__loading { grid-column: 1 / -1; color: #c8c3bb; text-align: center; }
 .messages-call-card.is-group .messages-call-controls { margin-top: auto; }
 .messages-call-card.is-group .messages-call-activities { z-index: 4; }
+.messages-call-add-people { position: absolute; z-index: 5; top: max(18px,env(safe-area-inset-top)); right: 22px; display: inline-flex; min-height: 42px; align-items: center; gap: 7px; padding: 0 13px; border: 1px solid rgba(255,255,255,.16); border-radius: 22px; background: rgba(25,26,28,.76); color: #fff; font-size: 12px; cursor: pointer; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.messages-call-add-people:hover { border-color: rgba(241,122,69,.65); background: rgba(125,68,43,.9); }
+.messages-call-invite-backdrop { position: fixed; z-index: 1210; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(4,5,6,.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.messages-call-invite-dialog { display: flex; width: min(410px,100%); max-height: min(680px,calc(100dvh - 36px)); flex-direction: column; padding: 20px; border: 1px solid rgba(255,255,255,.13); border-radius: 22px; background: linear-gradient(145deg,#272827,#131415); box-shadow: 0 24px 80px rgba(0,0,0,.5); color: #f0ede8; }
+.messages-call-invite-dialog__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.messages-call-invite-dialog__heading h2 { margin: 5px 0 0; font-size: 20px; font-weight: 550; }
+.messages-call-invite-dialog__heading > button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid rgba(255,255,255,.11); border-radius: 50%; background: rgba(255,255,255,.05); color: inherit; cursor: pointer; }
+.messages-call-invite-dialog > p { margin: 9px 0 14px; color: #aaa49b; font-size: 12px; line-height: 1.5; }
+.messages-call-invite-search { display: flex; min-height: 40px; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(255,255,255,.045); color: #9c978f; }
+.messages-call-invite-search input { width: 100%; border: 0; outline: 0; background: transparent; color: #f0ede8; font: inherit; font-size: 12px; }
+.messages-call-invite-list { display: grid; min-height: 90px; gap: 6px; overflow-y: auto; margin: 12px -4px 4px; padding: 0 4px; }
+.messages-call-invite-person { display: flex; min-height: 58px; align-items: center; gap: 11px; padding: 7px 10px; border: 1px solid transparent; border-radius: 13px; background: rgba(255,255,255,.035); color: #ece8e1; text-align: left; cursor: pointer; }
+.messages-call-invite-person.is-selected { border-color: rgba(241,122,69,.5); background: rgba(241,122,69,.1); }
+.messages-call-invite-person:disabled { opacity: .48; cursor: default; }
+.messages-call-invite-person__avatar { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 50%; }
+.messages-call-invite-person > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 4px; }
+.messages-call-invite-person strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.messages-call-invite-person small { color: #9b958c; font-size: 10px; }
+.messages-call-invite-person > span:last-child { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid rgba(255,255,255,.14); border-radius: 50%; color: #e99567; }
+.messages-call-invite-empty { margin: auto; color: #aaa49b; font-size: 12px; text-align: center; }
+.messages-call-invite-capacity { margin: 3px 0 0 !important; color: #8f8a82 !important; font-size: 10px !important; }
+.messages-call-invite-notice { margin: 7px 0; color: #9fd1a8; font-size: 11px; }
+.messages-call-invite-error { margin: 7px 0; color: #ffaaa0; font-size: 11px; }
+.messages-call-invite-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+.messages-call-invite-actions button { min-height: 38px; padding: 0 14px; border: 1px solid rgba(255,255,255,.13); border-radius: 20px; background: rgba(255,255,255,.06); color: #f0ede8; font: inherit; font-size: 11px; cursor: pointer; }
+.messages-call-invite-actions button[type="submit"] { border-color: transparent; background: linear-gradient(120deg,#f17a45,#c44f35); color: #fff; }
+.messages-call-invite-actions button:disabled { opacity: .48; cursor: default; }
 .messages-call-hand-status { display: flex; max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center; gap: 8px; }
 .messages-call-hand-status span { white-space: nowrap; }
 .messages-composer__voice-status { display: block; margin: -5px 15px 8px; color: #e5a283; font-size: 9px; line-height: 1.45; }
@@ -410,6 +448,9 @@
   .messages-call-controls { gap: 16px; }
   .messages-call-participants { inset: calc(74px + env(safe-area-inset-top)) 12px calc(164px + env(safe-area-inset-bottom)); grid-template-columns: repeat(auto-fit,minmax(min(155px,100%),1fr)); gap: 8px; }
   .messages-call-participant { min-height: 88px; border-radius: 13px; }
+  .messages-call-add-people { top: max(12px,env(safe-area-inset-top)); right: 12px; min-height: 38px; padding: 0 10px; }
+  .messages-call-invite-backdrop { align-items: end; padding: 10px; }
+  .messages-call-invite-dialog { max-height: calc(100dvh - 20px); padding: 17px; border-radius: 20px; }
   .messages-call-activities { bottom: calc(82px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
   .messages-call-activities > button { padding: 0 10px; font-size: 11px; }
   .messages-call-reaction-picker { left: 50%; transform: translateX(-50%); }

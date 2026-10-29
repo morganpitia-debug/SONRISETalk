@@ -40,12 +40,77 @@ function GroupParticipantTile({ participant }) {
   )
 }
 
+function GroupCallInviteDialog({ candidates, participants, invitedPeople, onInvite, onClose }) {
+  const [query, setQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState([])
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const unavailableIds = new Set([
+    ...participants.map((participant) => participant.userId),
+    ...invitedPeople.map((person) => person.userId),
+  ])
+  const availableSlots = Math.max(0, 16 - participants.length - invitedPeople.length)
+  const availablePeople = candidates.filter((person) => (
+    !unavailableIds.has(person.id)
+    && `${person.name} ${person.username}`.toLowerCase().includes(query.trim().toLowerCase())
+  ))
+
+  async function submit(event) {
+    event.preventDefault()
+    if (!selectedIds.length) return
+    setSubmitting(true)
+    setError('')
+    try {
+      const invited = await onInvite(selectedIds)
+      setNotice(`Invitation${invited.length === 1 ? '' : 's'} sent to ${invited.map((person) => person.name).join(', ')}.`)
+      setSelectedIds([])
+    } catch (inviteError) {
+      setError(inviteError.message || 'The selected people could not be invited.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="messages-call-invite-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <form className="messages-call-invite-dialog" role="dialog" aria-modal="true" aria-labelledby="messages-call-invite-title" onSubmit={submit}>
+        <div className="messages-call-invite-dialog__heading">
+          <div><span className="messages-eyebrow">GROUP CALL</span><h2 id="messages-call-invite-title">Invite people</h2></div>
+          <button type="button" aria-label="Close invite people" onClick={onClose}><Icon name="close" size={18} /></button>
+        </div>
+        <p>Invite a mutual follow to join this call. They can accept or decline.</p>
+        <label className="messages-call-invite-search"><Icon name="search" size={16} /><span className="visually-hidden">Search contacts</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search contacts" /></label>
+        <div className="messages-call-invite-list" aria-label="Available contacts">
+          {availablePeople.map((person) => {
+            const selected = selectedIds.includes(person.id)
+            return <button className={`messages-call-invite-person${selected ? ' is-selected' : ''}`} key={person.id} type="button" aria-pressed={selected} disabled={!selected && selectedIds.length >= availableSlots} onClick={() => setSelectedIds((ids) => selected ? ids.filter((id) => id !== person.id) : [...ids, person.id])}>
+              <UserAvatar person={person} className="messages-call-invite-person__avatar" />
+              <span><strong>{person.name}</strong><small>@{person.username}</small></span>
+              <span aria-hidden="true">{selected ? '✓' : '+'}</span>
+            </button>
+          })}
+          {!availablePeople.length && <p className="messages-call-invite-empty">{candidates.length ? 'No available contacts match your search.' : 'Mutual-follow contacts could not be loaded.'}</p>}
+        </div>
+        <p className="messages-call-invite-capacity">{selectedIds.length} selected · {availableSlots} spaces available</p>
+        {notice && <p className="messages-call-invite-notice" role="status">{notice}</p>}
+        {error && <p className="messages-call-invite-error" role="alert">{error}</p>}
+        <div className="messages-call-invite-actions">
+          <button type="button" onClick={onClose}>Done</button>
+          <button type="submit" disabled={submitting || !selectedIds.length}>{submitting ? 'Sending…' : `Invite${selectedIds.length ? ` (${selectedIds.length})` : ''}`}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function CallOverlay({
   call,
   localStream,
   remoteStream,
   screenStream,
   groupParticipants = [],
+  inviteCandidates = [],
   muted,
   cameraEnabled,
   error,
@@ -58,6 +123,7 @@ export default function CallOverlay({
   onToggleScreenShare,
   activities = [],
   onSendActivity,
+  onInvitePeople,
 }) {
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -70,6 +136,7 @@ export default function CallOverlay({
   const [chatDraft, setChatDraft] = useState('')
   const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [visibleReaction, setVisibleReaction] = useState(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
   const chatEndRef = useRef(null)
   const seenChatCountRef = useRef(0)
 
@@ -126,6 +193,7 @@ export default function CallOverlay({
     setUnreadChatCount(0)
     seenChatCountRef.current = 0
     setActivityError('')
+    setInviteOpen(false)
   }, [call?.id])
 
   if (!call && !error) return null
@@ -148,6 +216,7 @@ export default function CallOverlay({
   return (
     <div className="messages-call-overlay" role="dialog" aria-modal="true" aria-label={call ? `${call.mediaType} call` : 'Call status'}>
       <section className={`messages-call-card${call?.mediaType === 'video' ? ' is-video' : ''}${call?.callMode === 'group' ? ' is-group' : ''}`}>
+        {call?.callMode === 'group' && call.phase === 'active' && <button className="messages-call-add-people" type="button" aria-label="Invite people to this call" title="Invite people" onClick={() => setInviteOpen(true)}><Icon name="add" size={20} /><span>Invite</span></button>}
         {call && <>
           {call.callMode !== 'group' && <>
             <video ref={remoteVideoRef} className={`messages-call-remote-video${call.mediaType !== 'video' && !remoteScreenSharing ? ' is-hidden' : ''}`} autoPlay muted playsInline aria-label="Remote video" />
@@ -160,7 +229,7 @@ export default function CallOverlay({
         </>}
         {call && <audio ref={remoteAudioRef} autoPlay aria-label="Remote call audio" />}
         <div className="messages-call-info">
-          {call && <><UserAvatar person={{ profilePicture: call.peerProfilePicture }} className="messages-call-avatar" /><h2>{call.peerName}</h2><p>{incoming && call.callMode === 'group' ? call.isHost ? 'Your group call is active · ' : `Invitation from ${call.caller?.name || 'a group member'} · ` : ''}{status}{call.mediaType ? ` · ${call.mediaType} call` : ''}</p></>}
+          {call && <><UserAvatar person={{ profilePicture: call.peerProfilePicture }} className="messages-call-avatar" /><h2>{call.peerName}</h2><p>{incoming && call.callMode === 'group' ? call.isHost ? 'Your group call is active · ' : `Invitation from ${call.caller?.name || 'a group member'} · ` : ''}{status}{call.mediaType ? ` · ${call.mediaType} call` : ''}{call.callMode === 'group' && ` · ${groupParticipants.length} connected`}</p></>}
           {(error || mediaError) && <p className="messages-call-error" role="alert">{error || mediaError}</p>}
           {activityError && <p className="messages-call-error" role="alert">{activityError}</p>}
         </div>
@@ -258,6 +327,13 @@ export default function CallOverlay({
           </>}
           {!call && error && <button className="messages-call-control" type="button" onClick={clearError}>Dismiss</button>}
         </div>
+        {inviteOpen && call?.callMode === 'group' && <GroupCallInviteDialog
+          candidates={inviteCandidates}
+          participants={groupParticipants}
+          invitedPeople={call.invitedPeople ?? []}
+          onInvite={onInvitePeople}
+          onClose={() => setInviteOpen(false)}
+        />}
       </section>
     </div>
   )

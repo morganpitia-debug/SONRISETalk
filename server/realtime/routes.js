@@ -35,6 +35,7 @@ router.get('/calls/history', requireAuth, async (request, response, next) => {
           { initiatorId: request.auth.userId },
           { recipientId: request.auth.userId },
           { participants: { some: { userId: request.auth.userId } } },
+          { invitations: { some: { userId: request.auth.userId } } },
         ],
       },
       orderBy: { startedAt: 'desc' },
@@ -55,6 +56,7 @@ router.get('/calls/history', requireAuth, async (request, response, next) => {
           startedAt: call.startedAt.toISOString(),
           acceptedAt: call.acceptedAt?.toISOString() ?? null,
           endedAt: call.endedAt?.toISOString() ?? null,
+          isIncoming: call.recipientId === request.auth.userId,
           durationSeconds: call.acceptedAt && call.endedAt
             ? Math.max(0, Math.floor((call.endedAt.getTime() - call.acceptedAt.getTime()) / 1000))
             : 0,

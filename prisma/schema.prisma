@@ -48,6 +48,8 @@ model User {
   callsInitiated     Call[]                 @relation("CallInitiator")
   callsReceived      Call[]                 @relation("CallRecipient")
   callParticipations CallParticipant[]
+  callInvitationsReceived CallInvitation[]  @relation("CallInvitationRecipient")
+  callInvitationsSent CallInvitation[]      @relation("CallInvitationSender")
   passwordResetTokens PasswordResetToken[]
   passkeyCredentials PasskeyCredential[]
   webAuthnChallenges WebAuthnChallenge[]
@@ -511,6 +513,7 @@ model Call {
   initiator      User         @relation("CallInitiator", fields: [initiatorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   recipient      User         @relation("CallRecipient", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   participants   CallParticipant[]
+  invitations    CallInvitation[]
 
   @@index([conversationId, startedAt])
   @@index([recipientId, status, startedAt])
@@ -530,4 +533,21 @@ model CallParticipant {
   @@unique([callId, userId])
   @@index([userId, leftAt])
   @@map("call_participants")
+}
+
+model CallInvitation {
+  id          String   @id @default(uuid())
+  callId      String   @map("call_id")
+  userId      String   @map("user_id")
+  invitedById String   @map("invited_by_id")
+  status      String   @default("invited")
+  createdAt   DateTime @default(now()) @map("created_at")
+  respondedAt DateTime? @map("responded_at")
+  call        Call     @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user        User     @relation("CallInvitationRecipient", fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  invitedBy   User     @relation("CallInvitationSender", fields: [invitedById], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([callId, userId])
+  @@index([userId, status])
+  @@map("call_invitations")
 }

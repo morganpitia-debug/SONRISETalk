@@ -4,7 +4,7 @@ import Icon from '../Icon.jsx'
 import ProfilePhotoButton from '../ProfilePhotoButton.jsx'
 import UserAvatar from '../UserAvatar.jsx'
 import { getAvatarInitial } from '../../utils/avatar.js'
-import { addGroupMembers as addGroupMembersApi, createConversation, createRealtimeSocket, getAddableGroupMembers, getConversations, getMessages, leaveGroup as leaveGroupApi, refreshVoiceNoteUrl, setConversationMuted, setConversationNickname, uploadVoiceNote } from '../../api/messaging.js'
+import { addGroupMembers as addGroupMembersApi, createConversation, createRealtimeSocket, getAddableGroupMembers, getCallHistory, getConversations, getMessages, leaveGroup as leaveGroupApi, refreshVoiceNoteUrl, setConversationMuted, setConversationNickname, uploadVoiceNote } from '../../api/messaging.js'
 import { deleteNote, getNotes, getPrivacySettings, getProfileConnections, reportUser, saveNote, updatePrivacySettings, uploadMedia } from '../../api/social.js'
 import { isApiEnabled } from '../../api/auth.js'
 import { CallManagerContext } from '../../hooks/useCallManager.js'
@@ -578,7 +578,7 @@ function GroupPeopleDialog({ conversation, currentUserId, onClose, onAdd, onLeav
   )
 }
 
-function ChatPanel({ conversation, conversations, messages, reactions, onSend, onSendVoiceNote, onRefreshVoiceNote, onStartCall, callActive, onReact, onDeleteForEveryone, onForward, onNickname, onBlock, onMute, onReport, onAddGroupMembers, onLeaveGroup, userId, composerRef, onBack, onViewProfile, onTypingChange, isTyping, connectionState, initialDraft = null, onInitialDraftUsed }) {
+function ChatPanel({ conversation, conversations, messages, reactions, callHistory, onSend, onSendVoiceNote, onRefreshVoiceNote, onStartCall, callActive, onReact, onDeleteForEveryone, onForward, onNickname, onBlock, onMute, onReport, onAddGroupMembers, onLeaveGroup, userId, composerRef, onBack, onViewProfile, onTypingChange, isTyping, connectionState, initialDraft = null, onInitialDraftUsed }) {
   const scrollRef = useRef(null)
   const [draft, setDraft] = useState('')
   const [selectedImage, setSelectedImage] = useState(null)
@@ -609,6 +609,9 @@ function ChatPanel({ conversation, conversations, messages, reactions, onSend, o
   const initialMessageAttemptRef = useRef('')
   const fileInputRef = useRef(null)
   const messagesForChat = messages[conversation.id] || conversation.messages
+  const missedCallsForChat = callHistory.filter((call) => (
+    call.conversationId === conversation.id && call.status === 'missed' && !call.otherParticipant?.group
+  ))
 
   useEffect(() => {
     if (!initialDraft?.text || (isApiEnabled() && connectionState !== 'connected')) return
@@ -932,6 +935,21 @@ function ChatPanel({ conversation, conversations, messages, reactions, onSend, o
             </div>
           </div>
         ))}
+        {missedCallsForChat.map((missedCall) => (
+          <article className={`messages-missed-call${missedCall.isIncoming ? '' : ' is-outgoing'}`} key={`missed-${missedCall.id}`}>
+            <div className="messages-missed-call__summary">
+              <span className="messages-missed-call__icon"><Icon name="phone" size={16} /></span>
+              <div>
+                <strong>{missedCall.isIncoming ? 'Missed call' : 'No answer'}</strong>
+                <span>{missedCall.mediaType === 'video' ? 'Video call' : 'Voice call'} · {conversation.nickname || conversation.name}</span>
+              </div>
+              <time>{new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date(missedCall.startedAt))}</time>
+            </div>
+            <button type="button" className="messages-missed-call__callback" disabled={callActive || conversation.blocked || !conversation.profileId} onClick={() => onStartCall(conversation, missedCall.mediaType)}>
+              <Icon name="phone" size={14} /> Call back
+            </button>
+          </article>
+        ))}
       </div>
       {replyTo && <div className="messages-replying"><span><strong>Replying to {replyTo.from === 'me' ? 'yourself' : conversation.nickname || conversation.name}</strong><small>{replyTo.text}</small></span><button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)}><Icon name="close" size={15} /></button></div>}
       {voiceNoteRecording && <div className="messages-voice-note-composer is-recording" role="status">
@@ -1195,7 +1213,7 @@ function ReportConversationDialog({ conversation, targets, onClose, onSubmit }) 
   )
 }
 
-export default function MessagesPage({ onMobileChatChange, openProfile, onViewProfile, onStartCall, callActive = false, currentUser = { id: '', name: '', username: '' } }) {
+export default function MessagesPage({ onMobileChatChange, onCallContactsChange, openProfile, onViewProfile, onStartCall, callActive = false, currentUser = { id: '', name: '', username: '' } }) {
   const callManager = useContext(CallManagerContext)
   const usesApi = isApiEnabled()
   const [conversations, setConversations] = useState([])
@@ -1208,6 +1226,7 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
   const [noteViewer, setNoteViewer] = useState(null)
   const [groupDialogOpen, setGroupDialogOpen] = useState(false)
   const [messages, setMessages] = useState({})
+  const [callHistory, setCallHistory] = useState([])
   const [reactions, setReactions] = useState({})
   const [connectionState, setConnectionState] = useState(usesApi ? 'connecting' : 'connected')
   const [messagingError, setMessagingError] = useState('')
@@ -1218,9 +1237,36 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
   const typingTimerRef = useRef(null)
   const selectedIdRef = useRef(selectedId)
   const conversationsRef = useRef(conversations)
+  const reloadCallHistory = useCallback(() => getCallHistory()
+    .then(({ calls: nextCalls }) => {
+      setCallHistory(nextCalls)
+      return nextCalls
+    }), [])
   const composerRef = useRef(null)
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedId)
   conversationsRef.current = conversations
+
+  useEffect(() => {
+    let active = true
+    if (!usesApi || !currentUser.username) {
+      onCallContactsChange?.([])
+      return () => { active = false }
+    }
+    Promise.all([
+      getProfileConnections(currentUser.username, 'followers'),
+      getProfileConnections(currentUser.username, 'following'),
+    ]).then(([followers, following]) => {
+      if (!active) return
+      const followingIds = new Set(following.users.map((person) => person.id))
+      onCallContactsChange?.(followers.users.filter((person) => followingIds.has(person.id)))
+    }).catch((error) => {
+      if (active) {
+        console.error('Could not load contacts for call invitations.', error)
+        onCallContactsChange?.([])
+      }
+    })
+    return () => { active = false }
+  }, [currentUser.username, onCallContactsChange, usesApi])
 
   useEffect(() => {
     selectedIdRef.current = selectedId
@@ -1267,6 +1313,7 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
     if (!usesApi) {
       setConversations([])
       setMessages({})
+      setCallHistory([])
       setOwnNote(null)
       setNotes([])
       setSelectedId(null)
@@ -1288,6 +1335,10 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
       .finally(() => {
         if (active) setLoadingConversations(false)
       })
+    setCallHistory([])
+    reloadCallHistory().catch((error) => {
+      if (active) setMessagingError(error.message || 'Call history could not load.')
+    })
     getNotes()
       .then(({ notes: nextNotes }) => {
         if (!active) return
@@ -1308,7 +1359,7 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
         if (active) setMessagingError(error.message || 'Notes could not load.')
       })
     return () => { active = false }
-  }, [currentUser.id, reloadConversations, usesApi])
+  }, [currentUser.id, reloadCallHistory, reloadConversations, usesApi])
 
   useEffect(() => {
     if (!usesApi) return undefined
@@ -1324,6 +1375,11 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
         socketRef.current = connection
         connection.on('connect', () => setConnectionState('connected'))
         connection.on('disconnect', () => setConnectionState('reconnecting'))
+        connection.on('call:ended', ({ status }) => {
+          if (status === 'missed') {
+            reloadCallHistory().catch((error) => setMessagingError(error.message || 'Missed-call history could not refresh.'))
+          }
+        })
         connection.on('connect_error', (error) => {
           setConnectionState('reconnecting')
           if (error.message === 'UNAUTHENTICATED') setMessagingError('Your session expired. Sign in again to use messages.')
@@ -1408,7 +1464,7 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
       socket?.disconnect()
       socketRef.current = null
     }
-  }, [currentUser.id, reloadConversations, usesApi])
+  }, [currentUser.id, reloadCallHistory, reloadConversations, usesApi])
 
   useEffect(() => {
     if (!usesApi) return undefined
@@ -1804,7 +1860,7 @@ export default function MessagesPage({ onMobileChatChange, openProfile, onViewPr
         </section>
         <div className="messages-chat-panel">
           {selectedConversation
-            ? <ChatPanel conversation={selectedConversation} conversations={conversations} messages={messages} reactions={reactions} onSend={sendMessage} onSendVoiceNote={sendVoiceNote} onRefreshVoiceNote={refreshVoiceNote} onStartCall={callManager?.startCall || onStartCall} callActive={Boolean(callManager?.call) || callActive} onReact={toggleReaction} onDeleteForEveryone={deleteMessageForEveryone} onForward={forwardMessage} onNickname={setNickname} onBlock={toggleBlocked} onMute={toggleMuted} onReport={reportConversationAccount} onAddGroupMembers={addPeopleToGroup} onLeaveGroup={leaveGroupConversation} userId={currentUser.id} composerRef={composerRef} onBack={() => setConversationOpen(false)} onViewProfile={onViewProfile} onTypingChange={changeTyping} isTyping={Boolean(typingByConversation[selectedConversation.id])} connectionState={connectionState} initialDraft={selectedConversation.profileId === openProfile?.id ? pendingStoryReply : null} onInitialDraftUsed={() => setPendingStoryReply(null)} />
+            ? <ChatPanel conversation={selectedConversation} conversations={conversations} messages={messages} reactions={reactions} callHistory={callHistory} onSend={sendMessage} onSendVoiceNote={sendVoiceNote} onRefreshVoiceNote={refreshVoiceNote} onStartCall={callManager?.startCall || onStartCall} callActive={Boolean(callManager?.call) || callActive} onReact={toggleReaction} onDeleteForEveryone={deleteMessageForEveryone} onForward={forwardMessage} onNickname={setNickname} onBlock={toggleBlocked} onMute={toggleMuted} onReport={reportConversationAccount} onAddGroupMembers={addPeopleToGroup} onLeaveGroup={leaveGroupConversation} userId={currentUser.id} composerRef={composerRef} onBack={() => setConversationOpen(false)} onViewProfile={onViewProfile} onTypingChange={changeTyping} isTyping={Boolean(typingByConversation[selectedConversation.id])} connectionState={connectionState} initialDraft={selectedConversation.profileId === openProfile?.id ? pendingStoryReply : null} onInitialDraftUsed={() => setPendingStoryReply(null)} />
             : <EmptyChat />}
         </div>
         <aside className="messages-details" aria-label="Conversation details">
