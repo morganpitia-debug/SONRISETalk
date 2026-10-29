@@ -12,7 +12,7 @@ export function savePushSubscription(subscription) {
   return request('/api/push/subscriptions', {
     method: 'POST',
     body: JSON.stringify({ subscription }),
-  })
+  }).then((response) => response.data)
 }
 
 export function deletePushSubscription(endpoint) {

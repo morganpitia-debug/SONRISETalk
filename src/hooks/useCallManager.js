@@ -410,6 +410,9 @@ export default function useCallManager(enabled, currentUserId) {
         })
       })
       connection.on('call:ended', ({ callId, status }) => {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.controller?.postMessage({ type: 'CALL_ENDED', callId })
+        }
         if (callRef.current?.id !== callId) return
         if (status === 'missed') setCallError('The call was not answered.')
         else if (status === 'declined') setCallError('The call was declined.')

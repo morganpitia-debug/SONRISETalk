@@ -9,23 +9,44 @@ function configureWebPush(configuration) {
 export async function sendIncomingCallPush(userId, call) {
   const status = getPushConfiguration()
   if (!status.configured) return
-  const configuration = {
-    publicKey: status.publicKey,
-    privateKey: process.env.VAPID_PRIVATE_KEY.trim(),
-    subject: process.env.VAPID_SUBJECT.trim(),
-  }
-
   try {
+    const callId = call.id ?? call.callId
+    const groupCall = call.callMode === 'group'
+    const activeCall = await prisma.call.findFirst({
+      where: groupCall
+        ? {
+          id: callId,
+          status: 'connected',
+          OR: [
+            { invitations: { some: { userId, status: 'invited' } } },
+            {
+              invitations: { none: { userId } },
+              conversation: { members: { some: { userId } } },
+            },
+          ],
+        }
+        : { id: callId, recipientId: userId, status: 'ringing' },
+      select: { id: true },
+    })
+    if (!activeCall) return
+
+    const configuration = {
+      publicKey: status.publicKey,
+      privateKey: process.env.VAPID_PRIVATE_KEY.trim(),
+      subject: process.env.VAPID_SUBJECT.trim(),
+    }
     const subscriptions = await prisma.pushSubscription.findMany({ where: { userId } })
     if (!subscriptions.length) return
     configureWebPush(configuration)
+    const callerName = typeof call.caller?.name === 'string'
+      ? call.caller.name.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 80).trim()
+      : ''
     const payload = JSON.stringify({
-      title: `${call.caller.name} is calling`,
-      body: call.callMode === 'group'
-        ? `Incoming group ${call.mediaType} call${call.groupName ? ` · ${call.groupName}` : ''}`
-        : `Incoming ${call.mediaType} call`,
-      tag: `incoming-call-${call.id}`,
-      data: { callId: call.id, url: '/' },
+      type: 'incoming-call',
+      title: `${callerName || 'Someone'} is calling`,
+      body: `${groupCall ? 'Group ' : ''}incoming ${call.mediaType === 'video' ? 'video' : 'voice'} call`,
+      tag: `incoming-call-${callId}`,
+      data: { callId, url: '/' },
     })
 
     await Promise.all(subscriptions.map(async (subscription) => {
@@ -43,6 +64,6 @@ export async function sendIncomingCallPush(userId, call) {
       }
     }))
   } catch (error) {
-    console.error('Could not load incoming-call push subscriptions:', error)
+    console.error('Could not send an incoming-call push notification:', error)
   }
 }

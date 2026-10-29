@@ -6,6 +6,7 @@ import express from 'express'
 import { serveWebClient } from './webClient.js'
 import { rateLimit } from 'express-rate-limit'
 import { prisma } from './db.js'
+import { getPushConfigurationDiagnostic } from './push/pushConfig.js'
 import authRoutes from './auth/routes.js'
 import aiRoutes from './ai/routes.js'
 import mediaRoutes from './media/routes.js'
@@ -18,6 +19,9 @@ import socialRoutes from './social/routes.js'
 import adminRoutes from './admin/routes.js'
 
 dotenv.config({ path: '.env.local' })
+
+const pushConfigurationDiagnostic = getPushConfigurationDiagnostic()
+if (pushConfigurationDiagnostic) console.warn(pushConfigurationDiagnostic)
 
 const app = express()
 const httpServer = createServer(app)

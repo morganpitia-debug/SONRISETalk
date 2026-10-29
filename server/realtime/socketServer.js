@@ -115,7 +115,11 @@ async function finishEmptyGroupCall(callId, io) {
       status: 'connected',
       conversation: { groupName: { not: null } },
     },
-    include: { conversation: { select: { members: { select: { userId: true } } } } },
+    include: {
+      conversation: { select: { members: { select: { userId: true } } } },
+      participants: { select: { userId: true } },
+      invitations: { select: { userId: true } },
+    },
   })
   if (!call) return
   const endedAt = new Date()
@@ -124,8 +128,17 @@ async function finishEmptyGroupCall(callId, io) {
     data: { status: 'completed', endedAt },
   })
   if (!updated.count) return
+  await prisma.callInvitation.updateMany({
+    where: { callId: call.id, status: 'invited' },
+    data: { status: 'expired', respondedAt: endedAt },
+  })
   const data = { callId: call.id, status: 'completed', endedAt: endedAt.toISOString() }
-  for (const member of call.conversation.members) io.to(userRoom(member.userId)).emit('call:ended', data)
+  const recipientIds = new Set([
+    ...call.conversation.members.map(({ userId }) => userId),
+    ...call.participants.map(({ userId }) => userId),
+    ...call.invitations.map(({ userId }) => userId),
+  ])
+  for (const recipientId of recipientIds) io.to(userRoom(recipientId)).emit('call:ended', data)
 }
 
 export function attachSocketServer(httpServer, { clientUrl }) {
@@ -202,9 +215,15 @@ export function attachSocketServer(httpServer, { clientUrl }) {
         status: 'connected',
         conversation: { groupName: { not: null } },
         OR: [
-          { conversation: { members: { some: { userId } } } },
+          { initiatorId: userId },
           { invitations: { some: { userId, status: 'invited' } } },
           { participants: { some: { userId, leftAt: null } } },
+          {
+            AND: [
+              { conversation: { members: { some: { userId } } } },
+              { invitations: { none: { userId } } },
+            ],
+          },
         ],
       },
       include: {
@@ -480,6 +499,11 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             ...(acceptedAt ? {
               acceptedAt,
               participants: { create: { userId, joinedAt: acceptedAt } },
+              invitations: {
+                create: conversation.members
+                  .filter((member) => member.userId !== userId)
+                  .map((member) => ({ userId: member.userId, invitedById: userId })),
+              },
             } : {}),
           },
         })
@@ -589,9 +613,14 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             status: 'connected',
             conversation: { groupName: { not: null } },
             OR: [
-              { conversation: { members: { some: { userId } } } },
               { invitations: { some: { userId, status: 'invited' } } },
               { participants: { some: { userId } } },
+              {
+                AND: [
+                  { conversation: { members: { some: { userId } } } },
+                  { invitations: { none: { userId } } },
+                ],
+              },
             ],
           },
           include: {
@@ -828,10 +857,16 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           where: {
             id: payload?.callId,
             status: 'connected',
+            initiatorId: { not: userId },
             conversation: { groupName: { not: null } },
             OR: [
-              { conversation: { members: { some: { userId } } } },
               { invitations: { some: { userId, status: 'invited' } } },
+              {
+                AND: [
+                  { conversation: { members: { some: { userId } } } },
+                  { invitations: { none: { userId } } },
+                ],
+              },
             ],
           },
           select: { id: true, initiatorId: true },
@@ -840,9 +875,17 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           replyError(ack, 'CALL_NOT_FOUND', 'This group call invitation is no longer available.')
           return
         }
-        await prisma.callInvitation.updateMany({
-          where: { callId: call.id, userId, status: 'invited' },
-          data: { status: 'declined', respondedAt: new Date() },
+        const respondedAt = new Date()
+        await prisma.callInvitation.upsert({
+          where: { callId_userId: { callId: call.id, userId } },
+          create: {
+            callId: call.id,
+            userId,
+            invitedById: call.initiatorId,
+            status: 'declined',
+            respondedAt,
+          },
+          update: { status: 'declined', respondedAt },
         })
         const user = await prisma.user.findUnique({
           where: { id: userId },
@@ -901,7 +944,11 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             status: 'connected',
             conversation: { groupName: { not: null } },
           },
-          include: { conversation: { select: { members: { select: { userId: true } } } } },
+          include: {
+            conversation: { select: { members: { select: { userId: true } } } },
+            participants: { select: { userId: true } },
+            invitations: { select: { userId: true } },
+          },
         })
         if (!call) {
           replyError(ack, 'CALL_END_FORBIDDEN', 'Only the call starter can end this group call for everyone.')
@@ -920,8 +967,17 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           where: { callId: call.id, leftAt: null },
           data: { leftAt: endedAt, socketId: null },
         })
+        await prisma.callInvitation.updateMany({
+          where: { callId: call.id, status: 'invited' },
+          data: { status: 'expired', respondedAt: endedAt },
+        })
         const data = { callId: call.id, status: 'completed', endedAt: endedAt.toISOString() }
-        for (const member of call.conversation.members) io.to(userRoom(member.userId)).emit('call:ended', data)
+        const recipientIds = new Set([
+          ...call.conversation.members.map(({ userId: memberId }) => memberId),
+          ...call.participants.map(({ userId: participantId }) => participantId),
+          ...call.invitations.map(({ userId: inviteeId }) => inviteeId),
+        ])
+        for (const recipientId of recipientIds) io.to(userRoom(recipientId)).emit('call:ended', data)
         ack?.({ data: { status: data.status, endedAt: data.endedAt } })
       } catch (error) {
         console.error('Could not end group call:', error)
