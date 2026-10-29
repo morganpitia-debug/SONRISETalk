@@ -47,6 +47,7 @@ model User {
   reportsReceived    UserReport[]           @relation("UserReportTarget")
   callsInitiated     Call[]                 @relation("CallInitiator")
   callsReceived      Call[]                 @relation("CallRecipient")
+  callParticipations CallParticipant[]
   passwordResetTokens PasswordResetToken[]
   passkeyCredentials PasskeyCredential[]
   webAuthnChallenges WebAuthnChallenge[]
@@ -509,8 +510,24 @@ model Call {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   initiator      User         @relation("CallInitiator", fields: [initiatorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   recipient      User         @relation("CallRecipient", fields: [recipientId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  participants   CallParticipant[]
 
   @@index([conversationId, startedAt])
   @@index([recipientId, status, startedAt])
   @@map("calls")
+}
+
+model CallParticipant {
+  id        String    @id @default(uuid())
+  callId    String
+  userId    String
+  socketId  String?
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+  call      Call      @relation(fields: [callId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([callId, userId])
+  @@index([userId, leftAt])
+  @@map("call_participants")
 }

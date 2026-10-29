@@ -8,11 +8,44 @@ function formatDuration(startedAt, now) {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 }
 
+function GroupParticipantTile({ participant }) {
+  const videoRef = useRef(null)
+  const audioRef = useRef(null)
+
+  useEffect(() => {
+    const video = videoRef.current
+    const audio = audioRef.current
+    if (video && participant.videoTrack) {
+      video.srcObject = new MediaStream([participant.videoTrack])
+      video.play().catch((error) => console.warn('Group participant video could not autoplay.', error))
+    }
+    if (audio && participant.audioTrack && !participant.isLocal) {
+      audio.srcObject = new MediaStream([participant.audioTrack])
+      audio.play().catch((error) => console.warn('Group participant audio could not autoplay.', error))
+    }
+    return () => {
+      if (video) video.srcObject = null
+      if (audio) audio.srcObject = null
+    }
+  }, [participant.videoTrack, participant.audioTrack, participant.isLocal])
+
+  return (
+    <article className={`messages-call-participant${participant.isLocal ? ' is-local' : ''}`} aria-label={participant.isLocal ? 'You' : participant.name}>
+      {participant.videoTrack
+        ? <video ref={videoRef} autoPlay muted={participant.isLocal} playsInline aria-label={`${participant.isLocal ? 'Your' : `${participant.name}'s`} video`} />
+        : <UserAvatar person={{ name: participant.name }} className="messages-call-participant__avatar" />}
+      {participant.audioTrack && !participant.isLocal && <audio ref={audioRef} autoPlay aria-label={`${participant.name} audio`} />}
+      <span>{participant.isLocal ? 'You' : participant.name}</span>
+    </article>
+  )
+}
+
 export default function CallOverlay({
   call,
   localStream,
   remoteStream,
   screenStream,
+  groupParticipants = [],
   muted,
   cameraEnabled,
   error,
@@ -98,6 +131,7 @@ export default function CallOverlay({
   if (!call && !error) return null
   const incoming = call?.phase === 'incoming'
   const peerId = call ? (call.initiator ? call.recipientId : call.initiatorId) : null
+  const currentUserId = call?.currentUserId || peerId
   const remoteScreenSharing = [...activities].reverse().find((event) => (
     event.userId === peerId && event.activity?.type === 'share'
   ))?.activity.sharing ?? false
@@ -113,33 +147,43 @@ export default function CallOverlay({
 
   return (
     <div className="messages-call-overlay" role="dialog" aria-modal="true" aria-label={call ? `${call.mediaType} call` : 'Call status'}>
-      <section className={`messages-call-card${call?.mediaType === 'video' ? ' is-video' : ''}`}>
+      <section className={`messages-call-card${call?.mediaType === 'video' ? ' is-video' : ''}${call?.callMode === 'group' ? ' is-group' : ''}`}>
         {call && <>
-          <video ref={remoteVideoRef} className={`messages-call-remote-video${call.mediaType !== 'video' && !remoteScreenSharing ? ' is-hidden' : ''}`} autoPlay muted playsInline aria-label="Remote video" />
-          <video ref={localVideoRef} className={`messages-call-local-video${call.mediaType !== 'video' && !screenStream ? ' is-hidden' : ''}`} autoPlay muted playsInline aria-label="Your video" />
+          {call.callMode !== 'group' && <>
+            <video ref={remoteVideoRef} className={`messages-call-remote-video${call.mediaType !== 'video' && !remoteScreenSharing ? ' is-hidden' : ''}`} autoPlay muted playsInline aria-label="Remote video" />
+            <video ref={localVideoRef} className={`messages-call-local-video${call.mediaType !== 'video' && !screenStream ? ' is-hidden' : ''}`} autoPlay muted playsInline aria-label="Your video" />
+          </>}
+          {call.callMode === 'group' && <div className="messages-call-participants" aria-label="Group call participants">
+            {groupParticipants.map((participant) => <GroupParticipantTile key={participant.userId} participant={participant} />)}
+            {!groupParticipants.length && <p className="messages-call-participants__loading">Connecting participants…</p>}
+          </div>}
         </>}
         {call && <audio ref={remoteAudioRef} autoPlay aria-label="Remote call audio" />}
         <div className="messages-call-info">
-          {call && <><UserAvatar person={{ profilePicture: call.peerProfilePicture }} className="messages-call-avatar" /><h2>{call.peerName}</h2><p>{status}{call.mediaType ? ` · ${call.mediaType} call` : ''}</p></>}
+          {call && <><UserAvatar person={{ profilePicture: call.peerProfilePicture }} className="messages-call-avatar" /><h2>{call.peerName}</h2><p>{incoming && call.callMode === 'group' ? call.isHost ? 'Your group call is active · ' : `Invitation from ${call.caller?.name || 'a group member'} · ` : ''}{status}{call.mediaType ? ` · ${call.mediaType} call` : ''}</p></>}
           {(error || mediaError) && <p className="messages-call-error" role="alert">{error || mediaError}</p>}
           {activityError && <p className="messages-call-error" role="alert">{activityError}</p>}
         </div>
         {call && call.phase === 'active' && <>
           {visibleReaction && <div className="messages-call-reaction" aria-live="polite" key={visibleReaction.id}>
             <span>{visibleReaction.activity.emoji}</span>
-            <small>{visibleReaction.userId === (call.initiator ? call.initiatorId : call.recipientId) ? 'You' : call.peerName}</small>
+            <small>{visibleReaction.userId === currentUserId ? 'You' : groupParticipants.find((participant) => participant.userId === visibleReaction.userId)?.name || call.peerName}</small>
           </div>}
           {(() => {
-            const peerId = call.initiator ? call.recipientId : call.initiatorId
-            const peerHand = [...activities].reverse().find((event) => event.userId === peerId && event.activity?.type === 'hand')?.activity.raised
-            return peerHand ? <div className="messages-call-hand-status" role="status">✋ {call.peerName} raised a hand</div> : null
+            const latestHands = new Map()
+            activities.filter((event) => event.activity?.type === 'hand').forEach((event) => latestHands.set(event.userId, event))
+            const raisedHands = [...latestHands.values()].filter((event) => event.activity.raised && event.userId !== currentUserId)
+            return raisedHands.length ? <div className="messages-call-hand-status" role="status">{raisedHands.map((event) => {
+              const name = groupParticipants.find((participant) => participant.userId === event.userId)?.name || call.peerName
+              return <span key={event.id}>✋ {name}</span>
+            })}</div> : null
           })()}
           {chatOpen && <section className="messages-call-chat" aria-label="In-call chat">
             <header><h3>In-call chat</h3><button type="button" onClick={() => setChatOpen(false)} aria-label="Close in-call chat">×</button></header>
             <div className="messages-call-chat__messages" aria-live="polite">
               {activities.filter((event) => event.activity?.type === 'chat').map((event) => (
                 <article key={event.id}>
-                  <strong>{event.userId === (call.initiator ? call.initiatorId : call.recipientId) ? 'You' : call.peerName}</strong>
+                  <strong>{event.userId === currentUserId ? 'You' : groupParticipants.find((participant) => participant.userId === event.userId)?.name || call.peerName}</strong>
                   <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>
                   <p>{event.activity.text}</p>
                 </article>
@@ -190,11 +234,9 @@ export default function CallOverlay({
               }
             }}>{screenStream ? 'Stop sharing' : 'Share screen'}</button>
             <button type="button" aria-pressed={(() => {
-              const userId = call.initiator ? call.initiatorId : call.recipientId
-              return [...activities].reverse().find((event) => event.userId === userId && event.activity?.type === 'hand')?.activity.raised ?? false
+              return [...activities].reverse().find((event) => event.userId === currentUserId && event.activity?.type === 'hand')?.activity.raised ?? false
             })()} onClick={async () => {
-              const userId = call.initiator ? call.initiatorId : call.recipientId
-              const isRaised = [...activities].reverse().find((event) => event.userId === userId && event.activity?.type === 'hand')?.activity.raised ?? false
+              const isRaised = [...activities].reverse().find((event) => event.userId === currentUserId && event.activity?.type === 'hand')?.activity.raised ?? false
               setActivityError('')
               try {
                 await onSendActivity({ type: 'hand', raised: !isRaised })
@@ -202,18 +244,17 @@ export default function CallOverlay({
                 setActivityError(sendError.message || 'The hand status could not be updated.')
               }
             }}>✋ {(() => {
-              const userId = call.initiator ? call.initiatorId : call.recipientId
-              return [...activities].reverse().find((event) => event.userId === userId && event.activity?.type === 'hand')?.activity.raised ? 'Lower hand' : 'Raise hand'
+              return [...activities].reverse().find((event) => event.userId === currentUserId && event.activity?.type === 'hand')?.activity.raised ? 'Lower hand' : 'Raise hand'
             })()}</button>
           </div>
         </>}
         <div className="messages-call-controls">
-          {incoming && <button className="messages-call-control is-accept" type="button" onClick={onAccept} aria-label="Answer call"><Icon name="phone" size={19} /></button>}
-          {incoming && <button className="messages-call-control is-decline" type="button" onClick={onDecline} aria-label="Decline call"><Icon name="phone" size={19} /></button>}
+          {incoming && <button className="messages-call-control is-accept" type="button" onClick={onAccept} aria-label={call.callMode === 'group' ? 'Join group call' : 'Answer call'}><Icon name="phone" size={19} /></button>}
+          {incoming && <button className="messages-call-control is-decline" type="button" onClick={onDecline} aria-label={call.callMode === 'group' ? 'Dismiss group call' : 'Decline call'}><Icon name="phone" size={19} /></button>}
           {call && !incoming && <>
             <button className={`messages-call-control${muted ? ' is-toggled' : ''}`} type="button" onClick={onToggleMute} aria-label={muted ? 'Unmute microphone' : 'Mute microphone'} aria-pressed={muted}><Icon name="microphone" size={18} /></button>
             {call.mediaType === 'video' && <button className={`messages-call-control${!cameraEnabled ? ' is-toggled' : ''}`} type="button" onClick={onToggleCamera} aria-label={cameraEnabled ? 'Turn camera off' : 'Turn camera on'} aria-pressed={!cameraEnabled}><Icon name="video" size={18} /></button>}
-            <button className="messages-call-control is-decline" type="button" onClick={() => onEnd('completed')} aria-label="End call"><Icon name="phone" size={19} /></button>
+            <button className="messages-call-control is-decline" type="button" onClick={() => onEnd('completed')} aria-label={call.callMode === 'group' && !call.initiator ? 'Leave group call' : call.callMode === 'group' ? 'End group call for everyone' : 'End call'}><Icon name="phone" size={19} /></button>
           </>}
           {!call && error && <button className="messages-call-control" type="button" onClick={clearError}>Dismiss</button>}
         </div>

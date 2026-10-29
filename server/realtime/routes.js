@@ -31,13 +31,18 @@ router.get('/calls/history', requireAuth, async (request, response, next) => {
   try {
     const calls = await prisma.call.findMany({
       where: {
-        OR: [{ initiatorId: request.auth.userId }, { recipientId: request.auth.userId }],
+        OR: [
+          { initiatorId: request.auth.userId },
+          { recipientId: request.auth.userId },
+          { participants: { some: { userId: request.auth.userId } } },
+        ],
       },
       orderBy: { startedAt: 'desc' },
       take: 100,
       include: {
         initiator: { include: { profile: true } },
         recipient: { include: { profile: true } },
+        conversation: { select: { groupName: true } },
       },
     })
     response.status(200).json({
@@ -53,7 +58,9 @@ router.get('/calls/history', requireAuth, async (request, response, next) => {
           durationSeconds: call.acceptedAt && call.endedAt
             ? Math.max(0, Math.floor((call.endedAt.getTime() - call.acceptedAt.getTime()) / 1000))
             : 0,
-          otherParticipant: call.initiatorId === request.auth.userId
+          otherParticipant: call.conversation.groupName
+            ? { id: call.conversationId, name: call.conversation.groupName, group: true }
+            : call.initiatorId === request.auth.userId
             ? { id: call.recipient.id, username: call.recipient.username, name: call.recipient.profile?.name ?? call.recipient.username }
             : { id: call.initiator.id, username: call.initiator.username, name: call.initiator.profile?.name ?? call.initiator.username },
         })),

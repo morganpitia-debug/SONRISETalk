@@ -33,6 +33,8 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
     "libphonenumber-js": "^1.13.14",
+    "livekit-client": "^2.23.0",
+    "livekit-server-sdk": "^2.19.2",
     "multer": "^2.5.0",
     "pg": "^8.23.1",
     "prisma": "^7.10.1",

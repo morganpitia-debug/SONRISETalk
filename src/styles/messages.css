@@ -248,6 +248,22 @@
 .messages-call-card.is-video .messages-call-avatar { display: none; }
 .messages-call-card.is-video .messages-call-info p { color: #fff; }
 .messages-call-card.is-video .messages-call-controls { margin-top: auto; }
+.messages-call-card.is-group { background: radial-gradient(ellipse at 50% 30%,#272827,#101112 70%); }
+.messages-call-card.is-group .messages-call-info { z-index: 3; align-self: flex-start; flex: 0 0 auto; align-items: flex-start; justify-content: flex-start; padding: 0; text-align: left; text-shadow: 0 2px 8px #000; }
+.messages-call-card.is-group .messages-call-avatar { display: none; }
+.messages-call-card.is-group .messages-call-info h2 { font-size: 17px; }
+.messages-call-card.is-group .messages-call-info p { color: #fff; }
+.messages-call-participants { position: absolute; z-index: 1; inset: 84px 24px 154px; display: grid; grid-template-columns: repeat(auto-fit,minmax(min(240px,100%),1fr)); align-content: center; gap: 12px; overflow-y: auto; }
+.messages-call-participant { position: relative; display: grid; min-width: 0; min-height: 100px; aspect-ratio: 16 / 9; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.12); border-radius: 17px; background: radial-gradient(ellipse at 50% 40%,rgba(54,55,53,.72),#161718 75%); color: #f0ede8; }
+.messages-call-participant video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.messages-call-participant__avatar { width: 56px; height: 56px; border: 1px solid rgba(241,122,69,.32); border-radius: 50%; }
+.messages-call-participant > span { position: absolute; right: 8px; bottom: 8px; z-index: 1; max-width: calc(100% - 16px); overflow: hidden; padding: 5px 8px; border-radius: 12px; background: rgba(0,0,0,.62); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.messages-call-participant.is-local { border-color: rgba(241,122,69,.32); }
+.messages-call-participants__loading { grid-column: 1 / -1; color: #c8c3bb; text-align: center; }
+.messages-call-card.is-group .messages-call-controls { margin-top: auto; }
+.messages-call-card.is-group .messages-call-activities { z-index: 4; }
+.messages-call-hand-status { display: flex; max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center; gap: 8px; }
+.messages-call-hand-status span { white-space: nowrap; }
 .messages-composer__voice-status { display: block; margin: -5px 15px 8px; color: #e5a283; font-size: 9px; line-height: 1.45; }
 .messages-composer__voice-status.is-listening { color: #ffaaa0; }
 @keyframes messages-mic-pulse { 50% { box-shadow: 0 0 0 4px rgba(239,108,96,.1); } }
@@ -392,6 +408,8 @@
   .messages-call-card.is-video { height: 100dvh; }
   .messages-call-local-video { right: 16px; bottom: calc(92px + env(safe-area-inset-bottom)); width: min(30%,150px); }
   .messages-call-controls { gap: 16px; }
+  .messages-call-participants { inset: calc(74px + env(safe-area-inset-top)) 12px calc(164px + env(safe-area-inset-bottom)); grid-template-columns: repeat(auto-fit,minmax(min(155px,100%),1fr)); gap: 8px; }
+  .messages-call-participant { min-height: 88px; border-radius: 13px; }
   .messages-call-activities { bottom: calc(82px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
   .messages-call-activities > button { padding: 0 10px; font-size: 11px; }
   .messages-call-reaction-picker { left: 50%; transform: translateX(-50%); }

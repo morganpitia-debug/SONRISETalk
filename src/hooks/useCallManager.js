@@ -41,18 +41,20 @@ function scheduleCallTone(audioContext, frequencies, startAt, duration) {
   }
 }
 
-export default function useCallManager(enabled) {
+export default function useCallManager(enabled, currentUserId) {
   const [call, setCall] = useState(null)
   const [localStream, setLocalStream] = useState(null)
   const [remoteStream, setRemoteStream] = useState(null)
   const [muted, setMuted] = useState(false)
   const [cameraEnabled, setCameraEnabled] = useState(true)
   const [screenStream, setScreenStream] = useState(null)
+  const [groupParticipants, setGroupParticipants] = useState([])
   const [callError, setCallError] = useState('')
   const [callActivities, setCallActivities] = useState([])
   const socketRef = useRef(null)
   const callRef = useRef(null)
   const peerRef = useRef(null)
+  const groupRoomRef = useRef(null)
   const videoSenderRef = useRef(null)
   const screenStreamRef = useRef(null)
   const cameraTrackRef = useRef(null)
@@ -86,6 +88,13 @@ export default function useCallManager(enabled) {
   }, [])
 
   const cleanupMedia = useCallback(() => {
+    const groupRoom = groupRoomRef.current
+    groupRoomRef.current = null
+    if (groupRoom) {
+      groupRoom.removeAllListeners()
+      groupRoom.disconnect().catch((error) => console.warn('LiveKit call disconnected with an error.', error))
+    }
+    setGroupParticipants([])
     if (recoveryTimerRef.current) window.clearTimeout(recoveryTimerRef.current)
     recoveryTimerRef.current = null
     recoveryAttemptsRef.current = 0
@@ -148,7 +157,13 @@ export default function useCallManager(enabled) {
     if (!activeCall) return
     const socket = socketRef.current
     try {
-      if (socket?.connected) await emitAck(socket, 'call:end', { callId: activeCall.id, status })
+      if (socket?.connected) {
+        if (activeCall.callMode === 'group') {
+          await emitAck(socket, activeCall.initiator ? 'call:group-end' : 'call:group-leave', { callId: activeCall.id })
+        } else {
+          await emitAck(socket, 'call:end', { callId: activeCall.id, status })
+        }
+      }
     } catch (error) {
       setCallError(error.message)
     } finally {
@@ -236,6 +251,82 @@ export default function useCallManager(enabled) {
     }
   }, [createPeer, endCall, sendSignal])
 
+  const connectGroupCall = useCallback(async (activeCall) => {
+    const socket = socketRef.current
+    if (!socket?.connected) throw new Error('Call signaling is connecting. Try again in a moment.')
+    const credentials = await emitAck(socket, 'call:group-join', { callId: activeCall.id })
+    const { Room, RoomEvent, Track } = await import('livekit-client')
+    const room = new Room({ adaptiveStream: true, dynacast: true })
+    groupRoomRef.current = room
+    const readParticipants = () => {
+      if (groupRoomRef.current !== room) return
+      const readMediaTrack = (participant, source) => participant.getTrackPublication(source)?.track?.mediaStreamTrack ?? null
+      const localParticipant = room.localParticipant
+      setGroupParticipants([
+        {
+          userId: localParticipant.identity,
+          name: localParticipant.name || 'You',
+          isLocal: true,
+          audioTrack: readMediaTrack(localParticipant, Track.Source.Microphone),
+          videoTrack: readMediaTrack(localParticipant, Track.Source.ScreenShare) || readMediaTrack(localParticipant, Track.Source.Camera),
+        },
+        ...[...room.remoteParticipants.values()].map((participant) => ({
+          userId: participant.identity,
+          name: participant.name || 'Participant',
+          isLocal: false,
+          audioTrack: readMediaTrack(participant, Track.Source.Microphone),
+          videoTrack: readMediaTrack(participant, Track.Source.ScreenShare) || readMediaTrack(participant, Track.Source.Camera),
+        })),
+      ])
+    }
+    room.on(RoomEvent.ParticipantConnected, readParticipants)
+    room.on(RoomEvent.ParticipantDisconnected, readParticipants)
+    room.on(RoomEvent.TrackSubscribed, readParticipants)
+    room.on(RoomEvent.TrackUnsubscribed, readParticipants)
+    room.on(RoomEvent.TrackMuted, readParticipants)
+    room.on(RoomEvent.TrackUnmuted, readParticipants)
+    room.on(RoomEvent.LocalTrackPublished, readParticipants)
+    room.on(RoomEvent.LocalTrackUnpublished, readParticipants)
+    room.on(RoomEvent.ConnectionStateChanged, (state) => {
+      if (callRef.current?.id !== activeCall.id) return
+      updateCall({ ...callRef.current, phase: state === 'connected' ? 'active' : state === 'reconnecting' ? 'reconnecting' : 'connecting' })
+    })
+    room.on(RoomEvent.Disconnected, () => {
+      if (groupRoomRef.current !== room || callRef.current?.id !== activeCall.id) return
+      groupRoomRef.current = null
+      setCallError('The group call connection ended.')
+      cleanupMedia()
+      if (socketRef.current?.connected) {
+        emitAck(socketRef.current, 'call:group-leave', { callId: activeCall.id }).catch((error) => {
+          console.warn('Could not update group call membership after disconnect.', error)
+        })
+      }
+      updateCall(null)
+    })
+    try {
+      await room.connect(credentials.url, credentials.token)
+      await room.localParticipant.setMicrophoneEnabled(true, CALL_AUDIO_CONSTRAINTS)
+      await room.localParticipant.setCameraEnabled(activeCall.mediaType === 'video')
+      setMuted(false)
+      setCameraEnabled(activeCall.mediaType === 'video')
+      readParticipants()
+      updateCall({
+        ...activeCall,
+        phase: 'active',
+        acceptedAt: activeCall.acceptedAt || new Date().toISOString(),
+        currentUserId,
+      })
+    } catch (error) {
+      if (groupRoomRef.current === room) groupRoomRef.current = null
+      room.removeAllListeners()
+      await room.disconnect()
+      await emitAck(socket, 'call:group-leave', { callId: activeCall.id }).catch((leaveError) => {
+        console.error('Could not remove the failed group-call participant.', leaveError)
+      })
+      throw error
+    }
+  }, [cleanupMedia, currentUserId, updateCall])
+
   useEffect(() => {
     if (!enabled) return undefined
     let mounted = true
@@ -258,6 +349,28 @@ export default function useCallManager(enabled) {
           initiator: false,
           peerName: incomingCall.caller?.name || 'Someone',
           peerProfilePicture: incomingCall.caller?.profilePicture || null,
+          currentUserId,
+        })
+      })
+      connection.on('call:group-incoming', (incomingCall) => {
+        if (callRef.current?.id === incomingCall.id && callRef.current.callMode === 'group') {
+          emitAck(connection, 'call:group-join', { callId: incomingCall.id }).catch((error) => {
+            setCallError(error.message || 'The group call could not reconnect to signaling.')
+          })
+          return
+        }
+        if (callRef.current) {
+          emitAck(connection, 'call:group-decline', { callId: incomingCall.id }).catch((error) => setCallError(error.message))
+          return
+        }
+        updateCall({
+          ...incomingCall,
+          callMode: 'group',
+          phase: 'incoming',
+          initiator: Boolean(incomingCall.isHost),
+          peerName: incomingCall.groupName,
+          peerProfilePicture: null,
+          currentUserId,
         })
       })
       connection.on('call:accepted', async ({ callId, acceptedAt }) => {
@@ -289,6 +402,11 @@ export default function useCallManager(enabled) {
       connection.on('disconnect', () => {
         if (callRef.current?.phase === 'active') updateCall({ ...callRef.current, phase: 'reconnecting' })
       })
+      connection.on('connect', () => {
+        if (callRef.current?.callMode === 'group' && groupRoomRef.current?.state === 'connected') {
+          updateCall({ ...callRef.current, phase: 'active' })
+        }
+      })
     }).catch((error) => {
       if (mounted) setCallError(error.message || 'Call signaling could not connect.')
     })
@@ -299,7 +417,7 @@ export default function useCallManager(enabled) {
       cleanupMedia()
       callRef.current = null
     }
-  }, [cleanupMedia, createPeer, enabled, endCall, handleSignal, sendSignal, updateCall])
+  }, [cleanupMedia, createPeer, currentUserId, enabled, endCall, handleSignal, sendSignal, updateCall])
 
   const startCall = useCallback(async (conversation, mediaType) => {
     if (!enabled || callRef.current) return
@@ -307,6 +425,28 @@ export default function useCallManager(enabled) {
     setCallError('')
     if (!navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === 'undefined') {
       setCallError('Calling is not supported in this browser.')
+      return
+    }
+    if (conversation.groupName && conversation.members?.length > 2) {
+      try {
+        const socket = socketRef.current
+        if (!socket?.connected) throw new Error('Call signaling is connecting. Try again in a moment.')
+        const startedCall = await emitAck(socket, 'call:start', { conversationId: conversation.id, mediaType })
+        const groupCall = {
+          ...startedCall,
+          callMode: 'group',
+          phase: 'connecting',
+          initiator: true,
+          peerName: conversation.groupName,
+          currentUserId,
+        }
+        updateCall(groupCall)
+        await connectGroupCall(groupCall)
+      } catch (error) {
+        if (callRef.current?.callMode === 'group') await endCall('failed')
+        else cleanupMedia()
+        setCallError(error.message || 'The group call could not be started.')
+      }
       return
     }
     try {
@@ -325,6 +465,7 @@ export default function useCallManager(enabled) {
         initiator: true,
         peerName: conversation.nickname || conversation.name,
         peerProfilePicture: conversation.profilePicture || null,
+        currentUserId,
       })
     } catch (error) {
       cleanupMedia()
@@ -334,12 +475,23 @@ export default function useCallManager(enabled) {
           ? 'The requested microphone or camera was not found.'
           : error.message || 'The call could not be started.')
     }
-  }, [cleanupMedia, enabled, getCallAudioContext, updateCall])
+  }, [cleanupMedia, connectGroupCall, currentUserId, enabled, endCall, getCallAudioContext, updateCall])
 
   const acceptCall = useCallback(async () => {
     const activeCall = callRef.current
     if (!activeCall || activeCall.phase !== 'incoming') return
     getCallAudioContext()
+    if (activeCall.callMode === 'group') {
+      updateCall({ ...activeCall, phase: 'connecting' })
+      try {
+        await connectGroupCall({ ...activeCall, phase: 'connecting' })
+      } catch (error) {
+        cleanupMedia()
+        updateCall(null)
+        setCallError(error.message || 'The group call could not be joined.')
+      }
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: CALL_AUDIO_CONSTRAINTS,
@@ -356,18 +508,43 @@ export default function useCallManager(enabled) {
         : error.message || 'The call could not be answered.')
       endCall('failed')
     }
-  }, [createPeer, endCall, getCallAudioContext, updateCall])
+  }, [cleanupMedia, connectGroupCall, createPeer, endCall, getCallAudioContext, updateCall])
 
-  const declineCall = useCallback(() => endCall('declined'), [endCall])
+  const declineCall = useCallback(() => {
+    const activeCall = callRef.current
+    if (activeCall?.callMode === 'group' && activeCall.phase === 'incoming') {
+      emitAck(socketRef.current, 'call:group-decline', { callId: activeCall.id })
+        .catch((error) => setCallError(error.message))
+        .finally(() => updateCall(null))
+      return
+    }
+    endCall('declined')
+  }, [endCall, updateCall])
 
-  const toggleMute = useCallback(() => {
+  const toggleMute = useCallback(async () => {
     const nextMuted = !muted
+    if (groupRoomRef.current) {
+      try {
+        await groupRoomRef.current.localParticipant.setMicrophoneEnabled(!nextMuted, CALL_AUDIO_CONSTRAINTS)
+      } catch (error) {
+        setCallError(error.message || 'The microphone could not be updated.')
+        return
+      }
+    }
     for (const track of localStreamRef.current?.getAudioTracks() ?? []) track.enabled = !nextMuted
     setMuted(nextMuted)
   }, [muted])
 
-  const toggleCamera = useCallback(() => {
+  const toggleCamera = useCallback(async () => {
     const nextEnabled = !cameraEnabled
+    if (groupRoomRef.current) {
+      try {
+        await groupRoomRef.current.localParticipant.setCameraEnabled(nextEnabled)
+      } catch (error) {
+        setCallError(error.message || 'The camera could not be updated.')
+        return
+      }
+    }
     for (const track of localStreamRef.current?.getVideoTracks() ?? []) track.enabled = nextEnabled
     setCameraEnabled(nextEnabled)
   }, [cameraEnabled])
@@ -384,6 +561,13 @@ export default function useCallManager(enabled) {
   }, [])
 
   const stopScreenShare = useCallback(async () => {
+    if (groupRoomRef.current) {
+      await groupRoomRef.current.localParticipant.setScreenShareEnabled(false)
+      setScreenStream(null)
+      screenStreamRef.current = null
+      await sendCallActivity({ type: 'share', sharing: false })
+      return
+    }
     const stream = screenStreamRef.current
     if (!stream) return
     const sender = videoSenderRef.current
@@ -399,6 +583,18 @@ export default function useCallManager(enabled) {
   }, [sendCallActivity])
 
   const startScreenShare = useCallback(async () => {
+    if (groupRoomRef.current) {
+      const { Track } = await import('livekit-client')
+      await groupRoomRef.current.localParticipant.setScreenShareEnabled(true, { audio: false })
+      const screenTrack = groupRoomRef.current.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track?.mediaStreamTrack
+      if (!screenTrack) {
+        await groupRoomRef.current.localParticipant.setScreenShareEnabled(false)
+        throw new Error('The screen capture track could not be published.')
+      }
+      setScreenStream(new MediaStream([screenTrack]))
+      await sendCallActivity({ type: 'share', sharing: true })
+      return
+    }
     if (!navigator.mediaDevices?.getDisplayMedia) {
       throw new Error('Screen sharing is not supported in this browser.')
     }
@@ -442,6 +638,7 @@ export default function useCallManager(enabled) {
     muted,
     cameraEnabled,
     screenStream,
+    groupParticipants,
     callActivities,
     callError,
     clearCallError: () => setCallError(''),

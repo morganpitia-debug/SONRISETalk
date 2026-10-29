@@ -54,7 +54,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
   const isSonriseAI = activePage === 'SONRISE AI'
   const isAdminPage = activePage === 'Admin'
   const usesApi = isApiEnabled()
-  const callManager = useCallManager(usesApi && Boolean(authUser?.id))
+  const callManager = useCallManager(usesApi && Boolean(authUser?.id), authUser?.id)
   const isMoreDestination = ['Saved', 'History', 'Help & support', 'About SONRISETALK', 'Switch account', 'Admin'].includes(activePage)
   const [firstLine, secondLine] = pageCopy[activePage] ?? pageCopy.Home
   const [navExpanded, setNavExpanded] = useState(false)
@@ -478,6 +478,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
         localStream={callManager.localStream}
         remoteStream={callManager.remoteStream}
         screenStream={callManager.screenStream}
+        groupParticipants={callManager.groupParticipants}
         muted={callManager.muted}
         cameraEnabled={callManager.cameraEnabled}
         error={callManager.callError}

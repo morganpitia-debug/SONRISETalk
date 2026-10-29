@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { Server } from 'socket.io'
+import { AccessToken } from 'livekit-server-sdk'
 import { getAuthenticatedSession } from '../auth/session.js'
+import { config } from '../config.js'
 import { prisma } from '../db.js'
 import { addOnlineSocket, getOnlineUserIds, isUserOnline, removeOnlineSocket } from './presence.js'
 import { getCallEndStatus, getCallPeerId, isValidCallActivity, isValidCallSignal } from './callPolicy.js'
@@ -14,6 +16,7 @@ const CALL_RING_TIMEOUT_MS = 45000
 const CALL_SIGNAL_LIMIT_BYTES = 65536
 const CALL_SIGNAL_RATE_LIMIT = 120
 const CALL_SIGNAL_WINDOW_MS = 60000
+const MAX_ACTIVE_GROUP_CALL_PARTICIPANTS = 16
 let realtimeServer = null
 const signalActivityByUser = new Map()
 const callStartsByUser = new Map()
@@ -34,6 +37,10 @@ function allowedAtRate(map, userId, limit, windowMs) {
 
 export function conversationRoom(conversationId) {
   return `conversation:${conversationId}`
+}
+
+function callRoom(callId) {
+  return `call:${callId}`
 }
 
 export function getRealtimeServer() {
@@ -95,6 +102,30 @@ async function conversationForMember(conversationId, userId) {
 
 function otherMemberId(conversation, userId) {
   return conversation.members.find((member) => member.userId !== userId)?.userId
+}
+
+async function finishEmptyGroupCall(callId, io) {
+  const activeParticipants = await prisma.callParticipant.count({
+    where: { callId, leftAt: null },
+  })
+  if (activeParticipants) return
+  const call = await prisma.call.findFirst({
+    where: {
+      id: callId,
+      status: 'connected',
+      conversation: { groupName: { not: null } },
+    },
+    include: { conversation: { select: { members: { select: { userId: true } } } } },
+  })
+  if (!call) return
+  const endedAt = new Date()
+  const updated = await prisma.call.updateMany({
+    where: { id: call.id, status: 'connected' },
+    data: { status: 'completed', endedAt },
+  })
+  if (!updated.count) return
+  const data = { callId: call.id, status: 'completed', endedAt: endedAt.toISOString() }
+  for (const member of call.conversation.members) io.to(userRoom(member.userId)).emit('call:ended', data)
 }
 
 export function attachSocketServer(httpServer, { clientUrl }) {
@@ -166,6 +197,39 @@ export function attachSocketServer(httpServer, { clientUrl }) {
         })
       }
     }).catch((error) => console.error('Could not restore incoming calls:', error))
+    prisma.call.findMany({
+      where: {
+        status: 'connected',
+        conversation: {
+          groupName: { not: null },
+          members: { some: { userId } },
+        },
+      },
+      include: {
+        initiator: { include: { profile: true } },
+        conversation: { select: { groupName: true } },
+      },
+    }).then((calls) => {
+      for (const call of calls) {
+        socket.emit('call:group-incoming', {
+          id: call.id,
+          conversationId: call.conversationId,
+          initiatorId: call.initiatorId,
+          caller: {
+            id: call.initiator.id,
+            username: call.initiator.username,
+            name: call.initiator.profile?.name ?? call.initiator.username,
+            profilePicture: call.initiator.profile?.profilePicture ?? null,
+          },
+          isHost: call.initiatorId === userId,
+          groupName: call.conversation.groupName,
+          mediaType: call.mediaType,
+          status: call.status,
+          startedAt: call.startedAt.toISOString(),
+          callMode: 'group',
+        })
+      }
+    }).catch((error) => console.error('Could not restore group call invitations:', error))
 
     socket.on('conversation:join', async (payload, ack) => {
       try {
@@ -378,15 +442,24 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           return
         }
         const conversation = await conversationForMember(conversationId, userId)
-        if (!conversation || conversation.members.length !== 2) {
+        const isGroupCall = Boolean(conversation?.groupName && conversation.members.length > 2)
+        if (!conversation || (!isGroupCall && conversation.members.length !== 2)) {
           replyError(ack, 'CALL_UNAVAILABLE', 'Calls are currently available for one-to-one conversations.')
           return
         }
-        const recipientId = otherMemberId(conversation, userId)
+        if (isGroupCall && !config.livekit) {
+          replyError(ack, 'GROUP_CALL_UNAVAILABLE', 'Group calling is not configured. Contact the administrator to configure the LiveKit media server.')
+          return
+        }
+        const recipientId = isGroupCall ? userId : otherMemberId(conversation, userId)
         const activeCall = await prisma.call.findFirst({
           where: {
             status: { in: ACTIVE_CALL_STATUSES },
-            OR: [{ initiatorId: userId }, { recipientId: userId }],
+            OR: [
+              { initiatorId: userId },
+              { recipientId: userId },
+              { conversation: { groupName: { not: null }, members: { some: { userId } } } },
+            ],
           },
           select: { id: true },
         })
@@ -394,13 +467,25 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           replyError(ack, 'CALL_BUSY', 'There is already an active call in this conversation.')
           return
         }
+        const acceptedAt = isGroupCall ? new Date() : null
         const call = await prisma.call.create({
-          data: { conversationId, initiatorId: userId, recipientId, mediaType, status: 'ringing' },
+          data: {
+            conversationId,
+            initiatorId: userId,
+            recipientId,
+            mediaType,
+            status: isGroupCall ? 'connected' : 'ringing',
+            ...(acceptedAt ? {
+              acceptedAt,
+              participants: { create: { userId, joinedAt: acceptedAt } },
+            } : {}),
+          },
         })
         const caller = await prisma.user.findUnique({
           where: { id: userId },
           include: { profile: true },
         })
+        if (!caller) throw new Error('Call initiator account is unavailable.')
         const data = {
           id: call.id,
           conversationId,
@@ -412,12 +497,24 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             name: caller.profile?.name ?? caller.username,
             profilePicture: caller.profile?.profilePicture ?? null,
           },
+          groupName: isGroupCall ? conversation.groupName : undefined,
           mediaType,
           status: call.status,
           startedAt: call.startedAt.toISOString(),
+          ...(isGroupCall ? { callMode: 'group', acceptedAt: acceptedAt.toISOString() } : {}),
         }
-        io.to(userRoom(recipientId)).emit('call:incoming', data)
-        void sendIncomingCallPush(recipientId, data)
+        if (isGroupCall) {
+          for (const member of conversation.members) {
+            if (member.userId !== userId) io.to(userRoom(member.userId)).emit('call:group-incoming', data)
+          }
+        } else {
+          io.to(userRoom(recipientId)).emit('call:incoming', data)
+          void sendIncomingCallPush(recipientId, data)
+        }
+        if (isGroupCall) {
+          ack?.({ data })
+          return
+        }
         const timeout = setTimeout(async () => {
           try {
             const expired = await prisma.call.updateMany({
@@ -471,10 +568,207 @@ export function attachSocketServer(httpServer, { clientUrl }) {
       }
     })
 
+    socket.on('call:group-join', async (payload, ack) => {
+      try {
+        if (!allowedAtRate(callControlsByUser, userId, 20, 60 * 1000)) {
+          replyError(ack, 'CALL_RATE_LIMITED', 'Too many call actions. Try again later.')
+          return
+        }
+        if (!config.livekit) {
+          replyError(ack, 'GROUP_CALL_UNAVAILABLE', 'Group calling is not configured on this server.')
+          return
+        }
+        const call = await prisma.call.findFirst({
+          where: {
+            id: payload?.callId,
+            status: 'connected',
+            conversation: { groupName: { not: null }, members: { some: { userId } } },
+          },
+          include: {
+            conversation: { include: { members: { select: { userId: true } } } },
+            participants: { where: { leftAt: null }, select: { userId: true } },
+          },
+        })
+        if (!call) {
+          replyError(ack, 'CALL_NOT_FOUND', 'This group call is no longer available to you.')
+          return
+        }
+        const alreadyJoined = call.participants.some((participant) => participant.userId === userId)
+        if (!alreadyJoined && call.participants.length >= MAX_ACTIVE_GROUP_CALL_PARTICIPANTS) {
+          replyError(ack, 'CALL_FULL', 'This group call has reached its participant limit.')
+          return
+        }
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: { profile: true },
+        })
+        if (!user) {
+          replyError(ack, 'CALL_PARTICIPANT_NOT_FOUND', 'Your account could not be verified for this call.')
+          return
+        }
+        const joinedAt = new Date()
+        await prisma.callParticipant.upsert({
+          where: { callId_userId: { callId: call.id, userId } },
+          create: { callId: call.id, userId, socketId: socket.id, joinedAt },
+          update: { socketId: socket.id, joinedAt, leftAt: null },
+        })
+        socket.join(callRoom(call.id))
+        const token = new AccessToken(config.livekit.apiKey, config.livekit.apiSecret, {
+          identity: userId,
+          name: user.profile?.name ?? user.username,
+          ttl: '10m',
+        })
+        token.addGrant({ roomJoin: true, room: `sonrise-call-${call.id}`, canPublish: true, canSubscribe: true })
+        const jwt = await token.toJwt()
+        const activeCall = await prisma.call.findFirst({
+          where: { id: call.id, status: 'connected' },
+          select: { id: true },
+        })
+        if (!activeCall) {
+          await prisma.callParticipant.updateMany({
+            where: { callId: call.id, userId, socketId: socket.id, leftAt: null },
+            data: { leftAt: new Date(), socketId: null },
+          })
+          socket.leave(callRoom(call.id))
+          replyError(ack, 'CALL_NOT_FOUND', 'This group call has already ended.')
+          return
+        }
+        const participants = await prisma.callParticipant.findMany({
+          where: { callId: call.id, leftAt: null },
+          include: { user: { include: { profile: true } } },
+        })
+        const participant = {
+          userId,
+          name: user.profile?.name ?? user.username,
+          profilePicture: user.profile?.profilePicture ?? null,
+        }
+        if (!alreadyJoined) {
+          io.to(callRoom(call.id)).except(socket.id).emit('call:participant-joined', {
+            callId: call.id,
+            participant,
+          })
+        }
+        ack?.({
+          data: {
+            callId: call.id,
+            url: config.livekit.url,
+            token: jwt,
+            participants: participants.map(({ user: participantUser }) => ({
+              userId: participantUser.id,
+              name: participantUser.profile?.name ?? participantUser.username,
+              profilePicture: participantUser.profile?.profilePicture ?? null,
+            })),
+          },
+        })
+      } catch (error) {
+        console.error('Could not join group call:', error)
+        replyError(ack, 'CALL_JOIN_FAILED', 'The group call could not be joined.')
+      }
+    })
+
+    socket.on('call:group-decline', async (payload, ack) => {
+      try {
+        const call = await prisma.call.findFirst({
+          where: {
+            id: payload?.callId,
+            status: 'connected',
+            conversation: { groupName: { not: null }, members: { some: { userId } } },
+          },
+          select: { id: true, initiatorId: true },
+        })
+        if (!call) {
+          replyError(ack, 'CALL_NOT_FOUND', 'This group call invitation is no longer available.')
+          return
+        }
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true, profile: { select: { name: true } } },
+        })
+        io.to(userRoom(call.initiatorId)).emit('call:group-declined', {
+          callId: call.id,
+          userId,
+          name: user?.profile?.name ?? user?.username ?? 'A group member',
+        })
+        ack?.({ data: { declined: true } })
+      } catch (error) {
+        console.error('Could not decline group call:', error)
+        replyError(ack, 'CALL_DECLINE_FAILED', 'The group call invitation could not be declined.')
+      }
+    })
+
+    socket.on('call:group-leave', async (payload, ack) => {
+      try {
+        const participant = await prisma.callParticipant.findFirst({
+          where: {
+            callId: payload?.callId,
+            userId,
+            leftAt: null,
+            socketId: socket.id,
+            call: { status: 'connected', conversation: { groupName: { not: null } } },
+          },
+          select: { id: true, callId: true },
+        })
+        if (!participant) {
+          replyError(ack, 'CALL_NOT_FOUND', 'You are not in this active group call.')
+          return
+        }
+        const leftAt = new Date()
+        await prisma.callParticipant.update({ where: { id: participant.id }, data: { leftAt, socketId: null } })
+        socket.leave(callRoom(participant.callId))
+        io.to(callRoom(participant.callId)).emit('call:participant-left', {
+          callId: participant.callId,
+          userId,
+          leftAt: leftAt.toISOString(),
+        })
+        await finishEmptyGroupCall(participant.callId, io)
+        ack?.({ data: { leftAt: leftAt.toISOString() } })
+      } catch (error) {
+        console.error('Could not leave group call:', error)
+        replyError(ack, 'CALL_LEAVE_FAILED', 'The group call could not be left cleanly.')
+      }
+    })
+
+    socket.on('call:group-end', async (payload, ack) => {
+      try {
+        const call = await prisma.call.findFirst({
+          where: {
+            id: payload?.callId,
+            initiatorId: userId,
+            status: 'connected',
+            conversation: { groupName: { not: null } },
+          },
+          include: { conversation: { select: { members: { select: { userId: true } } } } },
+        })
+        if (!call) {
+          replyError(ack, 'CALL_END_FORBIDDEN', 'Only the call starter can end this group call for everyone.')
+          return
+        }
+        const endedAt = new Date()
+        const updated = await prisma.call.updateMany({
+          where: { id: call.id, status: 'connected', initiatorId: userId },
+          data: { status: 'completed', endedAt },
+        })
+        if (!updated.count) {
+          replyError(ack, 'CALL_NOT_FOUND', 'This group call has already ended.')
+          return
+        }
+        await prisma.callParticipant.updateMany({
+          where: { callId: call.id, leftAt: null },
+          data: { leftAt: endedAt, socketId: null },
+        })
+        const data = { callId: call.id, status: 'completed', endedAt: endedAt.toISOString() }
+        for (const member of call.conversation.members) io.to(userRoom(member.userId)).emit('call:ended', data)
+        ack?.({ data: { status: data.status, endedAt: data.endedAt } })
+      } catch (error) {
+        console.error('Could not end group call:', error)
+        replyError(ack, 'CALL_END_FAILED', 'The group call could not be ended.')
+      }
+    })
+
     socket.on('call:signal', async (payload, ack) => {
       try {
         const call = await prisma.call.findFirst({
-          where: { id: payload?.callId, status: 'connected' },
+          where: { id: payload?.callId, status: 'connected', conversation: { groupName: null } },
           select: { id: true, initiatorId: true, recipientId: true },
         })
         const signal = payload?.signal
@@ -513,19 +807,34 @@ export function attachSocketServer(httpServer, { clientUrl }) {
         }
         const call = await prisma.call.findFirst({
           where: { id: payload?.callId, status: 'connected' },
-          select: { id: true, initiatorId: true, recipientId: true },
+          select: {
+            id: true,
+            initiatorId: true,
+            recipientId: true,
+            conversation: { select: { groupName: true } },
+            participants: { where: { leftAt: null }, select: { userId: true } },
+          },
         })
-        const targetId = call ? getCallPeerId(call, userId) : null
-        if (!call || !targetId) {
+        if (!call) {
           replyError(ack, 'CALL_NOT_FOUND', 'This call is no longer available.')
           return
         }
-        if (!isUserOnline(targetId)) {
+        const isGroupCall = Boolean(call.conversation.groupName)
+        const recipientIds = isGroupCall
+          ? call.participants.filter((participant) => participant.userId !== userId).map((participant) => participant.userId)
+          : [getCallPeerId(call, userId)].filter(Boolean)
+        if (!isGroupCall && (!recipientIds.length || !isUserOnline(recipientIds[0]))) {
           replyError(ack, 'CALL_PARTICIPANT_OFFLINE', 'The other participant is reconnecting.')
           return
         }
+        if (isGroupCall && !call.participants.some((participant) => participant.userId === userId)) {
+          replyError(ack, 'CALL_NOT_FOUND', 'You are not a participant in this group call.')
+          return
+        }
         const data = { id: randomUUID(), callId: call.id, userId, activity, createdAt: new Date().toISOString() }
-        io.to(userRoom(targetId)).emit('call:activity', data)
+        for (const recipientId of recipientIds) {
+          if (isUserOnline(recipientId)) io.to(userRoom(recipientId)).emit('call:activity', data)
+        }
         ack?.({ data: { delivered: true, activity: data } })
       } catch (error) {
         console.error('Could not deliver call activity:', error)
@@ -543,6 +852,7 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           where: {
             id: payload?.callId,
             status: { in: ACTIVE_CALL_STATUSES },
+            conversation: { groupName: null },
           },
         })
         const otherId = call ? getCallPeerId(call, userId) : null
@@ -575,21 +885,48 @@ export function attachSocketServer(httpServer, { clientUrl }) {
     })
 
     socket.on('disconnect', async () => {
-      if (!removeOnlineSocket(userId, socket.id)) return
-      const lastSeenAt = new Date()
-      try {
-        await prisma.user.update({ where: { id: userId }, data: { lastSeenAt } })
-        io.emit('presence:update', { userId, online: false, lastSeenAt: lastSeenAt.toISOString() })
-      } catch {
-        io.emit('realtime:error', { message: 'Presence could not be updated.' })
+      const lastSocket = removeOnlineSocket(userId, socket.id)
+      if (lastSocket) {
+        const lastSeenAt = new Date()
+        try {
+          await prisma.user.update({ where: { id: userId }, data: { lastSeenAt } })
+          io.emit('presence:update', { userId, online: false, lastSeenAt: lastSeenAt.toISOString() })
+        } catch {
+          io.emit('realtime:error', { message: 'Presence could not be updated.' })
+        }
       }
       const disconnectTimer = setTimeout(async () => {
-        if (isUserOnline(userId)) return
         try {
+          const groupParticipants = await prisma.callParticipant.findMany({
+            where: {
+              userId,
+              socketId: socket.id,
+              leftAt: null,
+              call: { status: 'connected', conversation: { groupName: { not: null } } },
+            },
+            select: { id: true, callId: true },
+          })
+          for (const participant of groupParticipants) {
+            const leftAt = new Date()
+            const updated = await prisma.callParticipant.updateMany({
+              where: { id: participant.id, socketId: socket.id, leftAt: null },
+              data: { leftAt, socketId: null },
+            })
+            if (updated.count) {
+              io.to(callRoom(participant.callId)).emit('call:participant-left', {
+                callId: participant.callId,
+                userId,
+                leftAt: leftAt.toISOString(),
+              })
+              await finishEmptyGroupCall(participant.callId, io)
+            }
+          }
+          if (!lastSocket || isUserOnline(userId)) return
           const calls = await prisma.call.findMany({
             where: {
               status: { in: ACTIVE_CALL_STATUSES },
               OR: [{ initiatorId: userId }, { recipientId: userId }],
+              conversation: { groupName: null },
             },
           })
           for (const call of calls) {

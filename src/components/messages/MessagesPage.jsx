@@ -873,9 +873,9 @@ function ChatPanel({ conversation, conversations, messages, reactions, onSend, o
           {isTyping && <small className="messages-typing" role="status">Typing…</small>}
         </span>
         <div className="messages-chat__call-actions" aria-label="Calls">
-          <button className="messages-icon-button" type="button" aria-label="Start voice call" title="Voice call" disabled={!conversation.profileId || callActive || conversation.blocked} onClick={() => onStartCall(conversation, 'audio')}><Icon name="phone" size={18} /></button>
-          <button className="messages-icon-button" type="button" aria-label="Start video call" title="Video call" disabled={!conversation.profileId || callActive || conversation.blocked} onClick={() => onStartCall(conversation, 'video')}><Icon name="video" size={18} /></button>
-        </div>
+          <button className="messages-icon-button" type="button" aria-label={conversation.groupName ? 'Start group voice call' : 'Start voice call'} title={conversation.groupName ? 'Group voice call' : 'Voice call'} disabled={conversation.groupName ? (conversation.members?.length ?? 0) < 3 || callActive : !conversation.profileId || callActive || conversation.blocked} onClick={() => onStartCall(conversation, 'audio')}><Icon name="phone" size={18} /></button>
+          <button className="messages-icon-button" type="button" aria-label={conversation.groupName ? 'Start group video call' : 'Start video call'} title={conversation.groupName ? 'Group video call' : 'Video call'} disabled={conversation.groupName ? (conversation.members?.length ?? 0) < 3 || callActive : !conversation.profileId || callActive || conversation.blocked} onClick={() => onStartCall(conversation, 'video')}><Icon name="video" size={18} /></button>
+          </div>
         <ConversationMenu
           conversation={conversation}
           onNickname={(remove = false) => {
