@@ -14,7 +14,7 @@ export default function FloatingNavigation({ activePage, onNavigate, expanded, o
   return (
     <div className="navigation-dock">
       <nav
-        className={`floating-navigation glass-surface${expanded ? ' is-expanded' : ''}`}
+        className={`floating-navigation glass-surface${expanded ? ' is-expanded' : ''}${isAdmin ? ' has-admin' : ''}`}
         aria-label="Main navigation"
         aria-expanded={expanded}
         onPointerEnter={(event) => {

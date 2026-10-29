@@ -477,6 +477,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
         call={callManager.call}
         localStream={callManager.localStream}
         remoteStream={callManager.remoteStream}
+        screenStream={callManager.screenStream}
         muted={callManager.muted}
         cameraEnabled={callManager.cameraEnabled}
         error={callManager.callError}
@@ -486,6 +487,9 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
         onEnd={callManager.endCall}
         onToggleMute={callManager.toggleMute}
         onToggleCamera={callManager.toggleCamera}
+        onToggleScreenShare={callManager.toggleScreenShare}
+        activities={callManager.callActivities}
+        onSendActivity={callManager.sendCallActivity}
       />
 
       {!isHome && !isDiscover && !isMessages && !isCreate && !isProfile && !isNotifications && !isSonriseAI && !isSettings && !isMoreDestination && <div className="orbit" aria-hidden="true">

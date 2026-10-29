@@ -25,3 +25,18 @@ export function isValidCallSignal(signal, maxBytes) {
   }
   return false
 }
+
+const CALL_REACTIONS = new Set(['❤️', '😂', '👍', '👏', '🔥', '😮', '😢'])
+
+export function isValidCallActivity(activity) {
+  if (!activity || typeof activity !== 'object' || Array.isArray(activity)) return false
+  if (activity.type === 'reaction') return CALL_REACTIONS.has(activity.emoji)
+  if (activity.type === 'hand') return typeof activity.raised === 'boolean'
+  if (activity.type === 'share') return typeof activity.sharing === 'boolean'
+  if (activity.type === 'chat') {
+    return typeof activity.text === 'string'
+      && activity.text.trim().length > 0
+      && activity.text.length <= 500
+  }
+  return false
+}

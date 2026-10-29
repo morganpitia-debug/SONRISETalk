@@ -197,6 +197,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright);
     gap: 3px; padding: 7px; border-radius: 18px;
     touch-action: none; user-select: none;
   }
+  .floating-navigation.has-admin, .floating-navigation.has-admin.is-expanded {
+    width: calc(100vw - 96px); max-width: calc(100vw - 96px); min-width: 0;
+  }
+  .floating-navigation.has-admin .navigation-item,
+  .floating-navigation.has-admin.is-expanded .navigation-item {
+    width: auto; min-width: 0; flex: 1 1 0;
+  }
   .navigation-ai-button { width: 60px; height: 60px; flex-basis: 60px; }
   .navigation-ai-button svg { width: 29px; height: 29px; }
   .navigation-ai-button:hover, .navigation-ai-button.is-active { transform: translateY(-1px); }

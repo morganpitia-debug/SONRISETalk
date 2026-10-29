@@ -47,10 +47,15 @@ export default function useCallManager(enabled) {
   const [remoteStream, setRemoteStream] = useState(null)
   const [muted, setMuted] = useState(false)
   const [cameraEnabled, setCameraEnabled] = useState(true)
+  const [screenStream, setScreenStream] = useState(null)
   const [callError, setCallError] = useState('')
+  const [callActivities, setCallActivities] = useState([])
   const socketRef = useRef(null)
   const callRef = useRef(null)
   const peerRef = useRef(null)
+  const videoSenderRef = useRef(null)
+  const screenStreamRef = useRef(null)
+  const cameraTrackRef = useRef(null)
   const localStreamRef = useRef(null)
   const remoteStreamRef = useRef(null)
   const candidateQueueRef = useRef([])
@@ -75,6 +80,7 @@ export default function useCallManager(enabled) {
 
   const updateCall = useCallback((next) => {
     const value = typeof next === 'function' ? next(callRef.current) : next
+    if (callRef.current?.id !== value?.id) setCallActivities([])
     callRef.current = value
     setCall(value)
   }, [])
@@ -85,6 +91,14 @@ export default function useCallManager(enabled) {
     recoveryAttemptsRef.current = 0
     peerRef.current?.close()
     peerRef.current = null
+    videoSenderRef.current = null
+    const activeScreenStream = screenStreamRef.current
+    screenStreamRef.current = null
+    activeScreenStream?.getTracks().forEach((track) => {
+      track.onended = null
+      track.stop()
+    })
+    cameraTrackRef.current = null
     localStreamRef.current?.getTracks().forEach((track) => track.stop())
     localStreamRef.current = null
     remoteStreamRef.current?.getTracks().forEach((track) => track.stop())
@@ -92,6 +106,7 @@ export default function useCallManager(enabled) {
     candidateQueueRef.current = []
     setLocalStream(null)
     setRemoteStream(null)
+    setScreenStream(null)
     setMuted(false)
     setCameraEnabled(true)
   }, [])
@@ -150,6 +165,9 @@ export default function useCallManager(enabled) {
     for (const track of localStreamRef.current?.getTracks() ?? []) {
       peer.addTrack(track, localStreamRef.current)
     }
+    videoSenderRef.current = peer.getSenders().find((sender) => sender.track?.kind === 'video')
+      ?? peer.addTransceiver('video', { direction: 'sendrecv' }).sender
+    cameraTrackRef.current = localStreamRef.current?.getVideoTracks()[0] ?? null
     peer.ontrack = (event) => {
       const stream = event.streams[0] ?? remoteStreamRef.current ?? new MediaStream()
       if (!event.streams[0]) stream.addTrack(event.track)
@@ -257,6 +275,10 @@ export default function useCallManager(enabled) {
         }
       })
       connection.on('call:signal', handleSignal)
+      connection.on('call:activity', (event) => {
+        if (callRef.current?.id !== event?.callId || !event.activity) return
+        setCallActivities((current) => [...current.slice(-99), event])
+      })
       connection.on('call:ended', ({ callId, status }) => {
         if (callRef.current?.id !== callId) return
         if (status === 'missed') setCallError('The call was not answered.')
@@ -350,12 +372,77 @@ export default function useCallManager(enabled) {
     setCameraEnabled(nextEnabled)
   }, [cameraEnabled])
 
+  const sendCallActivity = useCallback(async (activity) => {
+    const activeCall = callRef.current
+    const socket = socketRef.current
+    if (!activeCall || activeCall.phase !== 'active' || !socket?.connected) {
+      throw new Error('Call updates are available after the connection is active.')
+    }
+    const result = await emitAck(socket, 'call:activity', { callId: activeCall.id, activity })
+    if (!result?.activity) throw new Error('The call update was not delivered.')
+    setCallActivities((current) => [...current.slice(-99), result.activity])
+  }, [])
+
+  const stopScreenShare = useCallback(async () => {
+    const stream = screenStreamRef.current
+    if (!stream) return
+    const sender = videoSenderRef.current
+    if (sender) await sender.replaceTrack(cameraTrackRef.current)
+    screenStreamRef.current = null
+    setScreenStream(null)
+    stream.getTracks().forEach((track) => {
+      track.onended = null
+      track.stop()
+    })
+    const activeCall = callRef.current
+    if (activeCall?.phase === 'active') await sendCallActivity({ type: 'share', sharing: false })
+  }, [sendCallActivity])
+
+  const startScreenShare = useCallback(async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      throw new Error('Screen sharing is not supported in this browser.')
+    }
+    const activeCall = callRef.current
+    const sender = videoSenderRef.current
+    if (!activeCall || activeCall.phase !== 'active' || !sender) {
+      throw new Error('Screen sharing is available after the call connects.')
+    }
+    if (screenStreamRef.current) return
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+    const track = stream.getVideoTracks()[0]
+    if (!track) {
+      stream.getTracks().forEach((mediaTrack) => mediaTrack.stop())
+      throw new Error('No screen or window was selected for sharing.')
+    }
+    try {
+      await sender.replaceTrack(track)
+      screenStreamRef.current = stream
+      setScreenStream(stream)
+      track.onended = () => {
+        stopScreenShare().catch((error) => setCallError(error.message))
+      }
+      await sendCallActivity({ type: 'share', sharing: true })
+    } catch (error) {
+      await sender.replaceTrack(cameraTrackRef.current).catch(() => {})
+      stream.getTracks().forEach((mediaTrack) => mediaTrack.stop())
+      screenStreamRef.current = null
+      setScreenStream(null)
+      throw error
+    }
+  }, [sendCallActivity, stopScreenShare])
+
+  const toggleScreenShare = useCallback(() => (
+    screenStreamRef.current ? stopScreenShare() : startScreenShare()
+  ), [startScreenShare, stopScreenShare])
+
   return {
     call,
     localStream,
     remoteStream,
     muted,
     cameraEnabled,
+    screenStream,
+    callActivities,
     callError,
     clearCallError: () => setCallError(''),
     startCall,
@@ -364,5 +451,7 @@ export default function useCallManager(enabled) {
     endCall,
     toggleMute,
     toggleCamera,
+    toggleScreenShare,
+    sendCallActivity,
   }
 }

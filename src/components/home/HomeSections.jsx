@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BrandMark from '../BrandMark.jsx'
 import GlassSurface from '../GlassSurface.jsx'
 import Icon from '../Icon.jsx'
@@ -6,11 +6,46 @@ import ProfilePhotoButton from '../ProfilePhotoButton.jsx'
 import UserAvatar from '../UserAvatar.jsx'
 
 export function StoriesPanel({ onAddStory, onOpenStory, stories = [], ownStory, currentUser }) {
+  const storiesRef = useRef(null)
+  const [canScrollBack, setCanScrollBack] = useState(false)
+  const [canScrollForward, setCanScrollForward] = useState(false)
   const openYourStory = ownStory ? () => onOpenStory(ownStory.id) : onAddStory
+
+  useEffect(() => {
+    const list = storiesRef.current
+    if (!list) return undefined
+    updateScrollControls()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateScrollControls)
+      return () => window.removeEventListener('resize', updateScrollControls)
+    }
+    const observer = new ResizeObserver(updateScrollControls)
+    observer.observe(list)
+    return () => observer.disconnect()
+  }, [stories.length, ownStory?.id])
+
+  function updateScrollControls() {
+    const list = storiesRef.current
+    if (!list) return
+    setCanScrollBack(list.scrollLeft > 2)
+    setCanScrollForward(list.scrollLeft + list.clientWidth < list.scrollWidth - 2)
+  }
+
+  function scrollStories(direction) {
+    storiesRef.current?.scrollBy({ left: direction * 250, behavior: 'smooth' })
+    window.setTimeout(updateScrollControls, 300)
+  }
+
   return (
     <section className="stories-panel" aria-labelledby="stories-title">
       <h2 id="stories-title" className="visually-hidden">Stories</h2>
-      <div className="stories-list">
+      {canScrollBack && <button className="stories-scroll stories-scroll--back" type="button" aria-label="Previous stories" onClick={() => scrollStories(-1)}><Icon name="chevron" size={18} /></button>}
+      <div className="stories-list" ref={storiesRef} onScroll={updateScrollControls} onKeyDown={(event) => {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault()
+          scrollStories(event.key === 'ArrowLeft' ? -1 : 1)
+        }
+      }} tabIndex={0} aria-label="Stories, horizontally scrollable">
         <div className="story-item story-item--add">
           <div className="story-item__add-wrapper">
             <button className="profile-photo-button" type="button" aria-label={ownStory ? 'View your story' : 'Add to your story'} onClick={openYourStory}><UserAvatar person={currentUser} className="story-avatar" /></button>
@@ -24,6 +59,7 @@ export function StoriesPanel({ onAddStory, onOpenStory, stories = [], ownStory, 
           </button>
           <button className="story-item__name story-item__open" type="button" onClick={() => onOpenStory(storyGroup.firstStoryId)}>{storyGroup.name}</button>
         </div>)}</div>
+      {canScrollForward && <button className="stories-scroll stories-scroll--forward" type="button" aria-label="More stories" onClick={() => scrollStories(1)}><Icon name="chevron" size={18} /></button>}
     </section>
   )
 }

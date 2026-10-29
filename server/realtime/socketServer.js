@@ -1,8 +1,9 @@
+import { randomUUID } from 'node:crypto'
 import { Server } from 'socket.io'
 import { getAuthenticatedSession } from '../auth/session.js'
 import { prisma } from '../db.js'
 import { addOnlineSocket, getOnlineUserIds, isUserOnline, removeOnlineSocket } from './presence.js'
-import { getCallEndStatus, getCallPeerId, isValidCallSignal } from './callPolicy.js'
+import { getCallEndStatus, getCallPeerId, isValidCallActivity, isValidCallSignal } from './callPolicy.js'
 import { isAllowedOrigin } from './originPolicy.js'
 import { mediaOwnershipPrefix } from '../media/mediaService.js'
 import { sendIncomingCallPush } from '../push/pushService.js'
@@ -17,6 +18,7 @@ let realtimeServer = null
 const signalActivityByUser = new Map()
 const callStartsByUser = new Map()
 const callControlsByUser = new Map()
+const callActivityByUser = new Map()
 
 function allowedAtRate(map, userId, limit, windowMs) {
   const now = Date.now()
@@ -494,6 +496,40 @@ export function attachSocketServer(httpServer, { clientUrl }) {
       } catch (error) {
         console.error('Could not deliver call signaling:', error)
         replyError(ack, 'CALL_SIGNAL_FAILED', 'Call signaling could not be delivered.')
+      }
+    })
+
+    socket.on('call:activity', async (payload, ack) => {
+      try {
+        const activity = payload?.activity
+        const isChat = activity?.type === 'chat'
+        if (!isValidCallActivity(activity)) {
+          replyError(ack, 'INVALID_CALL_ACTIVITY', 'This call activity is not supported.')
+          return
+        }
+        if (!allowedAtRate(callActivityByUser, userId, isChat ? 20 : 60, 60 * 1000)) {
+          replyError(ack, 'CALL_ACTIVITY_RATE_LIMITED', 'You are sending call updates too quickly.')
+          return
+        }
+        const call = await prisma.call.findFirst({
+          where: { id: payload?.callId, status: 'connected' },
+          select: { id: true, initiatorId: true, recipientId: true },
+        })
+        const targetId = call ? getCallPeerId(call, userId) : null
+        if (!call || !targetId) {
+          replyError(ack, 'CALL_NOT_FOUND', 'This call is no longer available.')
+          return
+        }
+        if (!isUserOnline(targetId)) {
+          replyError(ack, 'CALL_PARTICIPANT_OFFLINE', 'The other participant is reconnecting.')
+          return
+        }
+        const data = { id: randomUUID(), callId: call.id, userId, activity, createdAt: new Date().toISOString() }
+        io.to(userRoom(targetId)).emit('call:activity', data)
+        ack?.({ data: { delivered: true, activity: data } })
+      } catch (error) {
+        console.error('Could not deliver call activity:', error)
+        replyError(ack, 'CALL_ACTIVITY_FAILED', 'The call update could not be delivered.')
       }
     })
 

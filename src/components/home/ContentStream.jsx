@@ -4,6 +4,15 @@ import Icon from '../Icon.jsx'
 import ProfilePhotoButton from '../ProfilePhotoButton.jsx'
 import UserAvatar from '../UserAvatar.jsx'
 
+const VIDEO_PLAY_EVENT = 'sonrisetalk:feed-video-play'
+
+function formatVideoTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const minutes = Math.floor(seconds / 60)
+  const remainder = Math.floor(seconds % 60)
+  return `${minutes}:${String(remainder).padStart(2, '0')}`
+}
+
 function PostDialog({ post, mode, comments, onClose, onAddComment }) {
   const [comment, setComment] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -89,6 +98,32 @@ function VideoPost({ post, onOpen }) {
   const [playing, setPlaying] = useState(false)
   const [muted, setMuted] = useState(true)
   const [progress, setProgress] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [aspectRatio, setAspectRatio] = useState('')
+  const [buffering, setBuffering] = useState(false)
+  const [mediaError, setMediaError] = useState(false)
+  const [retry, setRetry] = useState(0)
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return undefined
+    const observer = 'IntersectionObserver' in window
+      ? new IntersectionObserver(([entry]) => {
+        if (!entry.isIntersecting && !video.paused) video.pause()
+      }, { threshold: 0.25 })
+      : null
+    observer?.observe(video)
+    const pauseOnAnotherPlay = (event) => {
+      if (event.detail !== video && !video.paused) video.pause()
+    }
+    window.addEventListener(VIDEO_PLAY_EVENT, pauseOnAnotherPlay)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener(VIDEO_PLAY_EVENT, pauseOnAnotherPlay)
+      video.pause()
+    }
+  }, [retry, post.media])
 
   async function togglePlay(event) {
     event.stopPropagation()
@@ -96,10 +131,13 @@ function VideoPost({ post, onOpen }) {
     if (!video) return
     if (video.paused) {
       try {
+        window.dispatchEvent(new CustomEvent(VIDEO_PLAY_EVENT, { detail: video }))
         await video.play()
         setPlaying(true)
+        setMediaError(false)
       } catch (error) {
         console.error('Unable to play feed video.', error)
+        setMediaError(true)
       }
     } else {
       video.pause()
@@ -127,23 +165,43 @@ function VideoPost({ post, onOpen }) {
   async function enterFullscreen(event) {
     event.stopPropagation()
     try {
-      await videoRef.current?.requestFullscreen?.()
+      const frame = event.currentTarget.closest('.post-card__media--video')
+      if (document.fullscreenElement) await document.exitFullscreen()
+      else if (frame?.requestFullscreen) await frame.requestFullscreen()
+      else await videoRef.current?.requestFullscreen?.()
     } catch (error) {
       console.error('Unable to open feed video in fullscreen.', error)
     }
   }
 
+  function handleVideoKeyDown(event) {
+    if (event.key === ' ' || event.key === 'Enter') {
+      event.preventDefault()
+      togglePlay(event)
+    }
+  }
+
   return (
-    <div className="post-card__media post-card__media--video" onClick={onOpen}>
-      <video ref={videoRef} src={post.media} muted={muted} playsInline preload="metadata" onTimeUpdate={(event) => {
+    <div className={`post-card__media post-card__media--video${playing ? ' is-playing' : ''}`} onClick={onOpen} style={{ aspectRatio: aspectRatio || (post.type === 'reel' ? '9 / 16' : '16 / 9') }}>
+      <video key={retry} ref={videoRef} src={post.media} muted={muted} playsInline preload="metadata" onClick={togglePlay} onKeyDown={handleVideoKeyDown} tabIndex={0} onLoadedMetadata={(event) => {
         const video = event.currentTarget
+        setDuration(video.duration)
+        if (video.videoWidth && video.videoHeight) setAspectRatio(`${video.videoWidth} / ${video.videoHeight}`)
+        setBuffering(false)
+        setMediaError(false)
+      }} onTimeUpdate={(event) => {
+        const video = event.currentTarget
+        setCurrentTime(video.currentTime)
         setProgress(video.duration ? (video.currentTime / video.duration) * 100 : 0)
-      }} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} aria-label={`${post.author}'s video`} />
+      }} onWaiting={() => setBuffering(true)} onCanPlay={() => setBuffering(false)} onPlay={() => { setPlaying(true); setBuffering(false) }} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onError={() => { setMediaError(true); setBuffering(false) }} aria-label={`${post.author}'s video`} />
+      {buffering && <span className="post-card__video-loading" role="status">Loading video…</span>}
+      {mediaError && <div className="post-card__video-error" role="alert"><span>Video couldn’t be played.</span><button type="button" onClick={(event) => { event.stopPropagation(); setMediaError(false); setBuffering(true); setRetry((count) => count + 1) }}>Try again</button></div>}
       <div className="post-card__video-controls" onClick={(event) => event.stopPropagation()}>
         <button type="button" aria-label={playing ? 'Pause video' : 'Play video'} onClick={togglePlay}><Icon name={playing ? 'pause' : 'play'} size={17} /></button>
+        <span className="post-card__video-time">{formatVideoTime(currentTime)} / {formatVideoTime(duration)}</span>
         <input className="post-card__video-progress" type="range" aria-label="Video progress" min="0" max="100" value={Math.round(progress)} style={{ '--video-progress': `${progress}%` }} onChange={seekVideo} />
         <button type="button" aria-label={muted ? 'Unmute video' : 'Mute video'} onClick={toggleMute}><Icon name={muted ? 'mute' : 'volume'} size={17} /></button>
-        <button type="button" aria-label="View fullscreen" onClick={enterFullscreen}><span aria-hidden="true">⛶</span></button>
+        <button type="button" aria-label={document.fullscreenElement ? 'Exit fullscreen' : 'View fullscreen'} onClick={enterFullscreen}><span aria-hidden="true">⛶</span></button>
       </div>
       <button type="button" className="post-card__open-media" aria-label={`Open ${post.author}'s post`} onClick={(event) => { event.stopPropagation(); onOpen() }}><Icon name="arrow" size={17} /></button>
     </div>
