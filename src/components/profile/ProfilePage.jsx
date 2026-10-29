@@ -384,7 +384,7 @@ export default function ProfilePage({ profile, onProfileChange, viewedProfile = 
     setMenuOpen(false)
     try {
       if (navigator.share) {
-        await navigator.share({ title: `${displayedProfile.name} on Trex`, text: `Connect with @${displayedProfile.username} on Trex.`, url: window.location.href })
+        await navigator.share({ title: `${displayedProfile.name} on SONRISETALK`, text: `Connect with @${displayedProfile.username} on SONRISETALK.`, url: window.location.href })
       } else {
         await navigator.clipboard.writeText(window.location.href)
       }

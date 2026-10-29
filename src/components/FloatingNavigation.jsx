@@ -39,11 +39,11 @@ export default function FloatingNavigation({ activePage, onNavigate, expanded, o
         <span className="navigation-index" aria-hidden="true">ST / 01</span>
       </nav>
       <button
-        className={`navigation-ai-button glass-surface${activePage === 'Trex AI' ? ' is-active' : ''}`}
+        className={`navigation-ai-button glass-surface${activePage === 'Sonrise AI' ? ' is-active' : ''}`}
         type="button"
-        aria-label="Open Trex AI"
-        aria-current={activePage === 'Trex AI' ? 'page' : undefined}
-        onClick={() => onNavigate('Trex AI')}
+        aria-label="Open Sonrise AI"
+        aria-current={activePage === 'Sonrise AI' ? 'page' : undefined}
+        onClick={() => onNavigate('Sonrise AI')}
       >
         <BrandMark size={25} />
       </button>

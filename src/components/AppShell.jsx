@@ -41,7 +41,7 @@ function readLocalSavedPostIds(userId) {
 const pageCopy = {
   Home: ['A place to', 'find your people.'],
   Messages: ['Conversations', 'have room to grow.'],
-  'Trex AI': ['A little light', 'when you need it.'],
+  'Sonrise AI': ['A little light', 'when you need it.'],
 }
 
 export default function AppShell({ activePage, onNavigate, theme, onThemeChange, sceneTheme, onSceneThemeChange, onLogout, authUser, savedAccounts, onSelectSavedAccount, onAddAccount, onUpdateSavedAccount }) {
@@ -52,11 +52,11 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
   const isProfile = activePage === 'Profile'
   const isNotifications = activePage === 'Notifications'
   const isSettings = activePage === 'Settings'
-  const isSonriseAI = activePage === 'Trex AI'
+  const isSonriseAI = activePage === 'Sonrise AI'
   const isAdminPage = activePage === 'Admin'
   const usesApi = isApiEnabled()
   const callManager = useCallManager(usesApi && Boolean(authUser?.id), authUser?.id)
-  const isMoreDestination = ['Saved', 'History', 'Help & support', 'About Trex', 'Switch account', 'Admin'].includes(activePage)
+  const isMoreDestination = ['Saved', 'History', 'Help & support', 'About Sonrisetalk', 'Switch account', 'Admin'].includes(activePage)
   const [firstLine, secondLine] = pageCopy[activePage] ?? pageCopy.Home
   const [navExpanded, setNavExpanded] = useState(false)
   const [messagesChatOpen, setMessagesChatOpen] = useState(false)
@@ -121,7 +121,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
   const [moreOpen, setMoreOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
   useEffect(() => {
-    if (activePage === 'Trex AI') previousPageRef.current = lastPageRef.current
+    if (activePage === 'Sonrise AI') previousPageRef.current = lastPageRef.current
     lastPageRef.current = activePage
   }, [activePage])
 
@@ -520,9 +520,9 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
         <span className="orbit__node orbit__node--three" />
       </div>}
 
-      {!isHome && !isDiscover && !isMessages && !isCreate && !isProfile && !isNotifications && !isSonriseAI && !isSettings && !isMoreDestination && <footer className="footnote"><span>Trex</span><span>AN OPENING, NOT A FEED.</span></footer>}
+      {!isHome && !isDiscover && !isMessages && !isCreate && !isProfile && !isNotifications && !isSonriseAI && !isSettings && !isMoreDestination && <footer className="footnote"><span>SONRISETALK</span><span>AN OPENING, NOT A FEED.</span></footer>}
       {moreOpen && <MoreMenu onClose={() => setMoreOpen(false)} onSelect={selectMoreItem} onLogout={() => { setMoreOpen(false); setLogoutOpen(true) }} />}
-      {logoutOpen && <div className="settings-dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setLogoutOpen(false)}><section className="settings-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="logout-title"><h2 id="logout-title">Log out of Trex?</h2><p>You can always log back in later.</p><div><button className="settings-secondary-button" type="button" onClick={() => setLogoutOpen(false)}>Cancel</button><button className="settings-danger-button" type="button" onClick={confirmLogout}>Log out</button></div></section></div>}
+      {logoutOpen && <div className="settings-dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setLogoutOpen(false)}><section className="settings-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="logout-title"><h2 id="logout-title">Log out of Sonrisetalk?</h2><p>You can always log back in later.</p><div><button className="settings-secondary-button" type="button" onClick={() => setLogoutOpen(false)}>Cancel</button><button className="settings-danger-button" type="button" onClick={confirmLogout}>Log out</button></div></section></div>}
       </div>
     </div>
   )

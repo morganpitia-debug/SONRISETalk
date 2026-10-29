@@ -5,8 +5,8 @@ import { changePassword, getAccountSessions, revokeAccountSession } from '../../
 
 const categories = [
   { group: 'ACCOUNT', items: [{ id: 'privacy', title: 'Privacy', description: 'Control who can see your profile and content.', icon: 'privacy' }, { id: 'account', title: 'Account', description: 'Your name, username and account type.', icon: 'account' }] },
-  { group: 'APPEARANCE', items: [{ id: 'theme', title: 'Appearance', description: 'Choose how Trex looks.', icon: 'sun' }] },
-  { group: 'AI & PERSONALIZATION', items: [{ id: 'ai', title: 'Trex AI', description: 'Manage what Trex AI can access.', icon: 'sparkle' }] },
+  { group: 'APPEARANCE', items: [{ id: 'theme', title: 'Appearance', description: 'Choose how Sonrisetalk looks.', icon: 'sun' }] },
+  { group: 'AI & PERSONALIZATION', items: [{ id: 'ai', title: 'Sonrise AI', description: 'Manage what Sonrise AI can access.', icon: 'sparkle' }] },
   { group: 'ACTIVITY', items: [{ id: 'history', title: 'History', description: 'Activity history is not connected yet.', icon: 'history' }, { id: 'activity', title: 'Activity controls', description: 'Activity history is not connected yet.', icon: 'settings' }] },
   { group: 'SECURITY', items: [{ id: 'security', title: 'Security', description: 'Review account safety options.', icon: 'shield' }] },
   { group: 'GENERAL', items: [{ id: 'notifications', title: 'Notifications', description: 'Choose which activity you hear about.', icon: 'notifications' }, { id: 'language', title: 'Language', description: 'Choose your preferred language.', icon: 'language' }] },
@@ -15,13 +15,13 @@ const categories = [
 const settingsCopy = {
   privacy: ['Privacy', 'Choose what you share and who can interact with you.'],
   account: ['Account', 'Manage your profile details and account type.'],
-  theme: ['Appearance', 'Make Trex feel like yours.'],
-  ai: ['Trex AI', 'Choose what Trex AI can access when helping you.'],
+  theme: ['Appearance', 'Make Sonrisetalk feel like yours.'],
+  ai: ['Sonrise AI', 'Choose what Sonrise AI can access when helping you.'],
   history: ['History', 'Activity history is not connected yet.'],
   activity: ['Activity controls', 'Activity history is not connected yet.'],
   security: ['Security', 'A few helpful account safety options.'],
   notifications: ['Notifications', 'Choose the updates you would like to see.'],
-  language: ['Language', 'Choose the language used in Trex.'],
+  language: ['Language', 'Choose the language used in Sonrisetalk.'],
 }
 
 function SettingRow({ title, description, icon, onClick }) {
@@ -247,19 +247,19 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
             </form>}
         </SectionCard></>
       case 'theme':
-        return <><SectionCard title="Experience"><p className="settings-section-intro">Choose the scene behind your Trex experience.</p><div className="settings-theme-choices">
-          {[{ id: 'default', title: 'Default', description: 'The original Trex background.' }, { id: 'underwater', title: 'Underwater', description: 'Cool blue water and softly swimming white fish.' }].map((option) => <button type="button" key={option.id} className={`settings-theme-choice settings-theme-choice--${option.id}${sceneTheme === option.id ? ' is-selected' : ''}`} aria-pressed={sceneTheme === option.id} onClick={() => onSceneThemeChange?.(option.id)}><span className="settings-theme-choice__preview"><i /><i /><i />{option.id === 'underwater' && <span className="settings-theme-choice__fish" aria-hidden="true">◁</span>}</span><strong>{option.title}</strong><small>{option.description}</small></button>)}
+        return <><SectionCard title="Experience"><p className="settings-section-intro">Choose the scene behind your Sonrisetalk experience.</p><div className="settings-theme-choices">
+          {[{ id: 'default', title: 'Default', description: 'The original Sonrisetalk background.' }, { id: 'underwater', title: 'Underwater', description: 'Cool blue water and softly swimming white fish.' }].map((option) => <button type="button" key={option.id} className={`settings-theme-choice settings-theme-choice--${option.id}${sceneTheme === option.id ? ' is-selected' : ''}`} aria-pressed={sceneTheme === option.id} onClick={() => onSceneThemeChange?.(option.id)}><span className="settings-theme-choice__preview"><i /><i /><i />{option.id === 'underwater' && <span className="settings-theme-choice__fish" aria-hidden="true">◁</span>}</span><strong>{option.title}</strong><small>{option.description}</small></button>)}
         </div></SectionCard><SectionCard title="Color scheme"><div className="settings-theme-choices">
-          {['dark', 'light'].map((option) => <button type="button" key={option} className={`settings-theme-choice settings-theme-choice--${option}${theme === option ? ' is-selected' : ''}`} aria-pressed={theme === option} onClick={() => onThemeChange(option)}><span className="settings-theme-choice__preview"><i /><i /><i /></span><strong>{option === 'dark' ? 'Dark' : 'Light'}</strong><small>{option === 'dark' ? 'Trex dark interface.' : 'Clean white Trex interface.'}</small></button>)}
+          {['dark', 'light'].map((option) => <button type="button" key={option} className={`settings-theme-choice settings-theme-choice--${option}${theme === option ? ' is-selected' : ''}`} aria-pressed={theme === option} onClick={() => onThemeChange(option)}><span className="settings-theme-choice__preview"><i /><i /><i /></span><strong>{option === 'dark' ? 'Dark' : 'Light'}</strong><small>{option === 'dark' ? 'Sonrisetalk dark interface.' : 'Clean white Sonrisetalk interface.'}</small></button>)}
         </div></SectionCard></>
       case 'ai':
-        return <><SectionCard title="What Trex AI can access">
-          <p className="settings-section-intro">Choose what Trex AI can access when helping you.</p>
-          <SwitchRow title="Profile" description="Allow Trex AI to use your profile information for more personalized help." checked={aiPermissions.profile} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, profile: value }))} />
-          <SwitchRow title="Posts" description="Allow Trex AI to use your posts when helping you." checked={aiPermissions.posts} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, posts: value }))} />
-          <SwitchRow title="Messages" description="Allow access to messages when you ask Trex AI to help with them." checked={aiPermissions.messages} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, messages: value }))} />
-          <SwitchRow title="Activity" description="Allow Trex AI to use your activity for personalization." checked={aiPermissions.activity} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, activity: value }))} />
-        </SectionCard><div className="settings-reassurance"><Icon name="shield" size={17} /><span>Trex AI only uses information you allow.</span></div></>
+        return <><SectionCard title="What Sonrise AI can access">
+          <p className="settings-section-intro">Choose what Sonrise AI can access when helping you.</p>
+          <SwitchRow title="Profile" description="Allow Sonrise AI to use your profile information for more personalized help." checked={aiPermissions.profile} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, profile: value }))} />
+          <SwitchRow title="Posts" description="Allow Sonrise AI to use your posts when helping you." checked={aiPermissions.posts} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, posts: value }))} />
+          <SwitchRow title="Messages" description="Allow access to messages when you ask Sonrise AI to help with them." checked={aiPermissions.messages} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, messages: value }))} />
+          <SwitchRow title="Activity" description="Allow Sonrise AI to use your activity for personalization." checked={aiPermissions.activity} onChange={(value) => onAIPermissionsChange((current) => ({ ...current, activity: value }))} />
+        </SectionCard><div className="settings-reassurance"><Icon name="shield" size={17} /><span>Sonrise AI only uses information you allow.</span></div></>
       case 'history':
         return <HistoryPanel history={history} onClear={() => setConfirmClear(true)} />
       case 'activity':
@@ -319,7 +319,7 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
           {Object.entries({ likes: 'Likes', comments: 'Comments', messages: 'Messages', mentions: 'Mentions' }).map(([key, label]) => <SwitchRow key={key} title={label} description={`Let me know when someone ${key === 'likes' ? 'likes my post' : key === 'comments' ? 'comments on my post' : key === 'messages' ? 'sends me a message' : 'mentions me'}.`} checked={notifications[key]} onChange={(value) => toggleObject(setNotifications, key, value)} />)}
         </SectionCard>
       case 'language':
-        return <SectionCard title="Language"><div className="settings-option-row"><span><strong>Display language</strong><small>Choose a language for Trex.</small></span><select aria-label="Display language" value={language} onChange={(event) => setLanguage(event.target.value)}>{['English', 'Español', 'Français', 'Deutsch', '日本語'].map((option) => <option key={option}>{option}</option>)}</select></div></SectionCard>
+        return <SectionCard title="Language"><div className="settings-option-row"><span><strong>Display language</strong><small>Choose a language for Sonrisetalk.</small></span><select aria-label="Display language" value={language} onChange={(event) => setLanguage(event.target.value)}>{['English', 'Español', 'Français', 'Deutsch', '日本語'].map((option) => <option key={option}>{option}</option>)}</select></div></SectionCard>
       default:
         return null
     }
@@ -335,7 +335,7 @@ export default function SettingsPage({ profile, theme, onThemeChange, sceneTheme
         </>
       ) : (
         <>
-          <header className="settings-header"><span className="settings-eyebrow"><span /> YOUR SPACE</span><h1>Settings</h1><p>Manage your Trex experience.</p></header>
+          <header className="settings-header"><span className="settings-eyebrow"><span /> YOUR SPACE</span><h1>Settings</h1><p>Manage your Sonrisetalk experience.</p></header>
           <div className="settings-category-list">{categories.map((group) => <section className="settings-category-group" key={group.group}><h2>{group.group}</h2>{group.items.map((item) => <SettingRow key={item.id} {...item} onClick={() => setSection(item.id)} />)}</section>)}</div>
         </>
       )}

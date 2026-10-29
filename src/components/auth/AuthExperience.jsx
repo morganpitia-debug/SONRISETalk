@@ -38,9 +38,9 @@ function AuthLayout({ theme, onThemeChange, children, step }) {
   return (
     <main className={`auth-page${theme === 'light' ? ' is-light' : ''}`}>
       <header className="auth-header">
-        <a className="auth-brand" href="#auth" aria-label="Trex">
+        <a className="auth-brand" href="#auth" aria-label="Sonrisetalk">
           <BrandMark size={35} />
-          <span>Trex</span>
+          <span>SONRISE<span>TALK</span></span>
         </a>
         <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
       </header>
@@ -365,7 +365,7 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated, 
       {screen === 'login' && <form className="auth-form" onSubmit={submitLogin} noValidate>
         {isAddingAccount && <button className="auth-back-button" type="button" aria-label="Return to app" onClick={onCancelAddAccount}><Icon name="back" size={16} /><span>Return</span></button>}
         <div className="auth-brand-mark"><BrandMark size={27} /></div>
-        <AuthHeading title="Welcome back" subtitle="Log in to continue to Trex." />
+        <AuthHeading title="Welcome back" subtitle="Log in to continue to Sonrisetalk." />
         <label className="auth-field" htmlFor="login-identifier"><span>Email, phone or username</span><input id="login-identifier" type="text" autoComplete="username" value={form.loginIdentifier} onChange={(event) => update('loginIdentifier', event.target.value)} /><FieldError>{errors.loginIdentifier}</FieldError></label>
         <div><PasswordInput id="login-password" label="Password" value={form.loginPassword} onChange={(value) => update('loginPassword', value)} /><FieldError>{errors.loginPassword}</FieldError></div>
         <div className="auth-forgot-row"><button type="button" onClick={openPasswordRecovery}>Forgot password?</button></div>
@@ -418,7 +418,7 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated, 
       {screen === 'signup' && <div className="auth-form">
         <SignupProgress step={step} />
         {step === 1 && <>
-          <AuthHeading title="Create your Trex account" subtitle="Enter your email or phone number to get started." />
+          <AuthHeading title="Create your Sonrisetalk account" subtitle="Enter your email or phone number to get started." />
           <div className="auth-choice" role="tablist" aria-label="Contact method">
             {['email', 'phone'].map((method) => <button key={method} type="button" role="tab" aria-selected={form.method === method} className={form.method === method ? 'is-active' : ''} onClick={() => { update('method', method); setErrors({}) }}>{method === 'email' ? 'Email' : 'Phone'}</button>)}
           </div>
@@ -437,7 +437,7 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated, 
           <div className="auth-actions"><button className="auth-secondary" type="button" onClick={() => setStep(1)}>Back</button><button className="auth-primary" type="button" onClick={continueSignup}>Continue</button></div>
         </>}
         {step === 3 && <>
-          <AuthHeading title="Choose your username" subtitle="This is how people will find you on Trex." />
+          <AuthHeading title="Choose your username" subtitle="This is how people will find you on Sonrisetalk." />
           <label className="auth-field" htmlFor="signup-username"><span>Username</span><div className="auth-username-input"><span>@</span><input id="signup-username" autoComplete="username" value={form.username.replace(/^@/, '')} onChange={(event) => update('username', event.target.value.replace(/^@/, ''))} /></div><FieldError>{errors.username}</FieldError></label>
           <p className={`auth-username-preview${usernameStatus.startsWith('Format looks good') ? ' is-available' : ''}`}>Your profile will appear as <strong>@{form.username.replace(/^@/, '') || 'username'}</strong>{usernameStatus && <span> · {usernameStatus}</span>}</p>
           <div className="auth-actions"><button className="auth-secondary" type="button" onClick={() => setStep(2)}>Back</button><button className="auth-primary" type="button" onClick={continueSignup}>Continue</button></div>
@@ -470,7 +470,7 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated, 
 
       {screen === 'success' && <div className="auth-form auth-success">
         <div className="auth-success__mark"><BrandMark size={40} /></div>
-        <AuthHeading title="Welcome to Trex!" subtitle="Your account is ready." />
+        <AuthHeading title="Welcome to Sonrisetalk!" subtitle="Your account is ready." />
         <div className="auth-success__summary"><strong>{form.name || 'Your profile'}</strong><span>@{form.username || 'username'}</span></div>
         {authenticatedUser?.hasPasskey === false && <div className="auth-passkey-prompt">
           <strong>Set up password recovery</strong>
@@ -478,12 +478,12 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated, 
           <button className="auth-secondary" type="button" onClick={handlePasskeySetup} disabled={authSubmitting}>{authSubmitting ? 'Setting up…' : 'Set up passkey'}</button>
           {passkeySetupStatus && <p className="auth-notice" role="status">{passkeySetupStatus}</p>}
         </div>}
-        <button className="auth-primary" type="button" onClick={() => setScreen('remember')}>Continue to Trex</button>
+        <button className="auth-primary" type="button" onClick={() => setScreen('remember')}>Continue to Sonrisetalk</button>
       </div>}
 
       {screen === 'remember' && <div className="auth-form auth-success">
         <div className="auth-success__mark"><BrandMark size={40} /></div>
-        <AuthHeading title="Save your login?" subtitle="Choose whether Trex should remember your login on this device." />
+        <AuthHeading title="Save your login?" subtitle="Choose whether Sonrisetalk should remember your login on this device." />
         {authenticatedUser?.hasPasskey === false && <div className="auth-passkey-prompt">
           <strong>Enable password recovery</strong>
           <p>A passkey lets your device verify you without email, phone, or username. Your biometric stays on your device.</p>

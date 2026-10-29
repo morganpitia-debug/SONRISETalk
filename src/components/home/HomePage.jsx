@@ -511,7 +511,7 @@ export default function HomePage({ onNavigate, onCreateStory, onReplyStory, onSt
         <aside className="home-rail" aria-label="Suggested people and stories">
           <CurrentUserProfile user={currentUser} onSwitchAccount={onSwitchAccount} onViewProfile={onViewProfile} />
           <SuggestedPeople people={suggestedPeople} onViewProfile={onViewProfile} followedProfileIds={followedProfileIds} followRequestsSentIds={followRequestsSentIds} onToggleFollow={onToggleFollow} />
-          <HomeAIShortcut onOpen={() => onNavigate('Trex AI')} />
+          <HomeAIShortcut onOpen={() => onNavigate('Sonrise AI')} />
         </aside>
       </div>
       {activeStory && <StoryViewer story={{ ...activeStory, liked: storyLikes[activeStory.id] ?? activeStory.liked }} storySegments={storySegments} isPaused={storyPaused} isMuted={storyMuted} insightsLoading={Boolean(storyInsightsLoading[activeStory.id])} onPauseChange={setStoryPaused} onMuteChange={setStoryMuted} onClose={() => setActiveStoryId(null)} onComplete={completeStory} onNext={nextStory} onReply={(story, text) => onReplyStory?.(story, text)} onLike={toggleStoryLike} onDelete={removeStory} onMute={muteStory} onViewProfile={onViewProfile} />}

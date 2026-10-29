@@ -53,8 +53,8 @@ const helpTopics = [
     ],
   },
   {
-    title: 'Use Trex AI',
-    summary: 'Open Trex AI from the navigation for assistant features.',
+    title: 'Use Sonrise AI',
+    summary: 'Open Sonrise AI from the navigation for assistant features.',
     steps: [
       'Describe what you want help with, such as writing, exploring, or understanding something.',
       'Attach up to four supported images (JPEG, PNG, WebP, HEIC, or HEIF), PDFs, or TXT, MD, and CSV files. Each file can be up to 3 MB, with 12 MB total per message.',
@@ -85,7 +85,7 @@ export default function MoreDestinationPage({
   const [reactions, setReactions] = useState({})
   const [commentsByPost, setCommentsByPost] = useState({})
   const [actionError, setActionError] = useState('')
-  const titles = { Saved: 'Saved', History: 'Your activity', 'Help & support': 'Help & support', 'About Trex': 'About Trex' }
+  const titles = { Saved: 'Saved', History: 'Your activity', 'Help & support': 'Help & support', 'About Sonrisetalk': 'About Sonrisetalk' }
   const currentUsername = account.username?.replace(/^@/, '').toLowerCase()
 
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function MoreDestinationPage({
 
   return (
     <div className="settings-page more-destination">
-      <header className="settings-header"><span className="settings-eyebrow"><span /> YOUR SPACE</span><h1>{titles[page] || page}</h1><p>{page === 'Saved' ? 'Posts you bookmarked are kept here so you can find them again.' : page === 'History' ? 'A simple record of things you have done.' : page === 'Help & support' ? 'Clear steps for using the main parts of Trex.' : page === 'Switch account' ? 'Choose an account saved on this device, or log in to add another.' : page === 'About Trex' ? 'A messaging and social space made to help people stay connected.' : 'A quieter kind of together.'}</p></header>
+      <header className="settings-header"><span className="settings-eyebrow"><span /> YOUR SPACE</span><h1>{titles[page] || page}</h1><p>{page === 'Saved' ? 'Posts you bookmarked are kept here so you can find them again.' : page === 'History' ? 'A simple record of things you have done.' : page === 'Help & support' ? 'Clear steps for using the main parts of Sonrisetalk.' : page === 'Switch account' ? 'Choose an account saved on this device, or log in to add another.' : page === 'About Sonrisetalk' ? 'A messaging and social space made to help people stay connected.' : 'A quieter kind of together.'}</p></header>
       {page === 'Saved' && <>
         <div className="saved-page__toolbar"><p>Only you can see the posts you save.</p><button className="settings-link-button" type="button" onClick={() => setRefreshSaved((current) => current + 1)} disabled={savedLoading}><Icon name="history" size={14} /> Refresh</button></div>
         {savedError && <div className="saved-page__error" role="alert"><span>{savedError}</span><button className="settings-link-button" type="button" onClick={() => setRefreshSaved((current) => current + 1)}>Try again</button></div>}
@@ -177,7 +177,7 @@ export default function MoreDestinationPage({
             ? <ContentStream posts={savedPosts} reactions={reactions} savedPosts={{}} commentsByPost={commentsByPost} followedProfileIds={followedProfileIds} onReact={togglePostLike} onDiscuss={updatePostComments} onToggleFollow={onToggleFollow} onSave={removeSavedPost} onLoadMore={() => {}} onViewProfile={onViewProfile} />
             : !savedError && <section className="settings-section-card saved-page__empty"><Icon name="saved" size={23} /><h2>No saved posts yet</h2><p>Bookmark a post to keep it here. When you want it again, open More → Saved.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Home')}>Browse posts</button></section>}
       </>}
-      {page === 'History' && <section className="settings-section-card saved-page__empty"><Icon name="history" size={23} /><h2>Activity history isn’t available yet</h2><p>Trex does not currently keep a browsable activity log. Your saved posts are available in More → Saved, and updates appear in Notifications.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Notifications')}>Open notifications</button></section>}
+      {page === 'History' && <section className="settings-section-card saved-page__empty"><Icon name="history" size={23} /><h2>Activity history isn’t available yet</h2><p>Sonrisetalk does not currently keep a browsable activity log. Your saved posts are available in More → Saved, and updates appear in Notifications.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Notifications')}>Open notifications</button></section>}
       {page === 'Help & support' && <div className="help-guide">
         {helpTopics.map((topic) => <details className="settings-section-card help-guide__topic" key={topic.title}>
           <summary><span><strong>{topic.title}</strong><small>{topic.summary}</small></span><Icon name="chevron" size={16} /></summary>
@@ -185,9 +185,9 @@ export default function MoreDestinationPage({
         </details>)}
         <p className="help-guide__note">This guide covers the features currently available in the app. If a button or feature is unavailable, it may not be enabled for your account or device yet.</p>
       </div>}
-      {page === 'About Trex' && <section className="settings-section-card more-about">
+      {page === 'About Sonrisetalk' && <section className="settings-section-card more-about">
         <span className="more-about__mark">ST</span>
-        <h2>Trex</h2>
+        <h2>Sonrisetalk</h2>
         <p className="more-about__purpose">A messaging and social platform for conversations, sharing stories, discovering people, and keeping the moments that matter.</p>
         <div className="more-about__features">
           <div><Icon name="messages" size={17} /><strong>Connect</strong><span>Keep up through messages and calls.</span></div>
