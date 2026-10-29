@@ -6,3 +6,5 @@ project.db-shm
 project.db-wal
 .env*
 !.env.example
+
+desktop.ini
