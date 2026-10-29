@@ -88,7 +88,7 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
         throw new Error('Notifications require HTTPS or a trusted local development address.')
       }
       if (Notification.permission === 'denied') {
-        throw new Error('Notifications are blocked. Allow them for SONRISETALK in your browser or device settings, then try again.')
+        throw new Error('Notifications are blocked. Allow them for Trex in your browser or device settings, then try again.')
       }
       const configuration = await getPushConfiguration()
       if (!configuration.configured || !configuration.publicKey) {
@@ -99,7 +99,7 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
         : await Notification.requestPermission()
       if (permission !== 'granted') {
         throw new Error(permission === 'denied'
-          ? 'Notifications are blocked. Allow them for SONRISETALK in your browser or device settings, then try again.'
+          ? 'Notifications are blocked. Allow them for Trex in your browser or device settings, then try again.'
           : 'Notification permission was not granted. Tap Enable alerts to try again.')
       }
       const registration = await registerServiceWorker()
@@ -161,8 +161,8 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
         <div>
           <strong>Don’t miss a call</strong>
           <p>{Notification.permission === 'denied'
-            ? 'Notifications are blocked for this site. Allow them in your browser settings to receive call alerts while SONRISETALK is closed.'
-            : 'Turn on call alerts for this device. Your browser will ask for permission when you continue. On iPhone, install SONRISETALK to your Home Screen first.'}</p>
+            ? 'Notifications are blocked for this site. Allow them in your browser settings to receive call alerts while Trex is closed.'
+            : 'Turn on call alerts for this device. Your browser will ask for permission when you continue. On iPhone, install Trex to your Home Screen first.'}</p>
           {message && <small role="alert">{message}</small>}
         </div>
         <div className="call-notification-prompt__actions">
@@ -176,7 +176,7 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
   return (
     <div className="settings-push-control">
       <div className="settings-option-row">
-        <span><strong>Incoming-call alerts</strong><small>{supportMessage || (supported ? enabled ? 'This device can show alerts when SONRISETALK is closed.' : 'Allow this browser to alert you about incoming calls.' : 'Checking notification support…')}</small></span>
+        <span><strong>Incoming-call alerts</strong><small>{supportMessage || (supported ? enabled ? 'This device can show alerts when Trex is closed.' : 'Allow this browser to alert you about incoming calls.' : 'Checking notification support…')}</small></span>
         <button className="settings-link-button" type="button" disabled={!supported || working} onClick={enabled ? disable : enable}>
           {working ? 'Please wait…' : enabled ? 'Disable' : 'Enable'}
         </button>

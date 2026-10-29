@@ -63,6 +63,8 @@ export default function App() {
   const [savedAccounts, setSavedAccounts] = useState(readSavedAccounts)
   const [theme, setTheme] = useState(() => window.localStorage.getItem('sonrisetalk-theme') === 'light' ? 'light' : 'dark')
   const [sceneTheme, setSceneTheme] = useState(() => window.localStorage.getItem('sonrisetalk-scene-theme') === 'underwater' ? 'underwater' : 'default')
+  const [addingAccount, setAddingAccount] = useState(false)
+  const [previousSession, setPreviousSession] = useState(null)
 
   function completeAuthentication(remember, token, user) {
     if (remember) window.localStorage.setItem('sonrisetalk-session', 'saved')
@@ -132,6 +134,7 @@ export default function App() {
     const currentToken = window.localStorage.getItem('sonrisetalk-auth-token')
       || window.sessionStorage.getItem('sonrisetalk-auth-token')
     const currentProfile = readStoredAccount()
+    setPreviousSession({ token: currentToken, profile: currentProfile, session: window.localStorage.getItem('sonrisetalk-session') })
     const currentAccountIsSaved = savedAccounts.some((item) => item.id === currentProfile?.id)
     if (currentToken && !currentAccountIsSaved) {
       try {
@@ -147,9 +150,23 @@ export default function App() {
     window.sessionStorage.removeItem('sonrisetalk-auth-profile')
     setAccount(null)
     setActivePage('Home')
+    setAddingAccount(true)
     setAuthenticated(false)
   }
 
+  function cancelAddAccount() {
+    if (previousSession) {
+      if (previousSession.session) window.localStorage.setItem('sonrisetalk-session', previousSession.session)
+      if (previousSession.token) window.localStorage.setItem('sonrisetalk-auth-token', previousSession.token)
+      if (previousSession.profile) {
+        window.localStorage.setItem('sonrisetalk-auth-profile', JSON.stringify(previousSession.profile))
+        setAccount(previousSession.profile)
+      }
+      setAuthenticated(true)
+    }
+    setAddingAccount(false)
+    setPreviousSession(null)
+  }
   async function logout() {
     const shouldRevoke = window.localStorage.getItem('sonrisetalk-auth-token')
       || window.sessionStorage.getItem('sonrisetalk-auth-token')
@@ -182,6 +199,6 @@ export default function App() {
     window.localStorage.setItem('sonrisetalk-scene-theme', sceneTheme)
   }, [sceneTheme])
 
-  if (!authenticated) return <AuthExperience theme={theme} onThemeChange={setTheme} onAuthenticated={completeAuthentication} />
+  if (!authenticated) return <AuthExperience theme={theme} onThemeChange={setTheme} onAuthenticated={completeAuthentication} isAddingAccount={addingAccount} onCancelAddAccount={cancelAddAccount} />
   return <AppShell key={account?.id ?? 'account-session'} activePage={activePage} onNavigate={setActivePage} theme={theme} onThemeChange={setTheme} sceneTheme={sceneTheme} onSceneThemeChange={setSceneTheme} onLogout={logout} authUser={account} savedAccounts={savedAccounts} onSelectSavedAccount={selectSavedAccount} onAddAccount={addAccount} onUpdateSavedAccount={updateSavedAccount} />
 }

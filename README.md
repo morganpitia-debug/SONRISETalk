@@ -1,6 +1,6 @@
-# SONRISETALK 2.0
+# Trix 2.0
 
-SONRISETALK includes Home, Discover, Create, Profile, Messages, Notifications, Settings, and SONRISE AI experiences.
+Trix includes Home, Discover, Create, Profile, Messages, Notifications, Settings, and Trix AI experiences.
 
 ## Underwater interface
 
@@ -31,13 +31,13 @@ Forgot password opens a recovery page that does not ask for an account identifie
 
 Users must set up a passkey while signed in before this recovery method can work. The app offers setup after signup and login. Existing accounts must sign in once and register a passkey. Passkeys are device/provider credentials: users should enroll another device or another authenticator when available so they do not lose access if one device is lost.
 
-For local development, the allowed origins default to `CLIENT_ORIGINS`. In production, set the server-only `WEBAUTHN_ORIGINS` to the exact HTTPS origin(s) that serve the app, comma-separated, for example `https://sonrisetalk.example.com`. Do not include a path or trailing slash. Passkeys require HTTPS except on localhost.
+For local development, the allowed origins default to `CLIENT_ORIGINS`. In production, set the server-only `WEBAUTHN_ORIGINS` to the exact HTTPS origin(s) that serve the app, comma-separated, for example `https://trix.example.com`. Do not include a path or trailing slash. Passkeys require HTTPS except on localhost.
 
 ## Render deployment
 
 Deploy one Render Web Service to serve both the API and the built frontend. Create the managed PostgreSQL database in the same region as this service. Use branch `main`, build command `npm ci --include=dev && npm run build`, start command `npm start`, and health check path `/api/health`. Add `DATABASE_URL` to the **Web Service's Environment settings**, using the PostgreSQL database's **Internal Database URL**. A URL configured only on the database service is not automatically available to the Web Service; copy it to the Web Service or link the database to it. The start command applies pending PostgreSQL migrations before launching the server. No persistent disk, separate Static Site, CORS origins, or `VITE_API_URL` are required for this single-origin setup.
 
-The API serves the Vite `dist` build and falls back to `index.html` for app navigation, so the service root opens SONRISETALK instead of showing "Cannot GET /". In production, the frontend automatically uses the same origin for API requests and Socket.IO. Configure `CLOUDINARY_URL` and `GEMINI_API_KEY` on the Web Service only if you want media upload and AI features; never expose these server secrets in `VITE_*` variables. To enable SONRISE AI, add `GEMINI_API_KEY` to the Render Web Service's Environment settings and redeploy; the key must belong to a Google AI Studio project with the Gemini API enabled and available quota.
+The API serves the Vite `dist` build and falls back to `index.html` for app navigation, so the service root opens Trix instead of showing "Cannot GET /". In production, the frontend automatically uses the same origin for API requests and Socket.IO. Configure `CLOUDINARY_URL` and `GEMINI_API_KEY` on the Web Service only if you want media upload and AI features; never expose these server secrets in `VITE_*` variables. To enable Trix AI, add `GEMINI_API_KEY` to the Render Web Service's Environment settings and redeploy; the key must belong to a Google AI Studio project with the Gemini API enabled and available quota.
 
 ### Background call notifications
 
@@ -85,7 +85,7 @@ Run automated checks with `npm test`. Build and database checks remain `npm run 
 
 ## Run the app with its API
 
-`npm run dev` starts the API, applies pending PostgreSQL migrations, and starts Vite. Open `http://localhost:5173`. The login and signup flows create PostgreSQL-backed accounts and issue an API session. Select "Save login on this device" to add the account to the device's Switch account list; choose "Add account" there to sign in with another account. Media uploads can be up to 100 MB and must be JPEG, PNG, WebP, GIF, MP4, WebM, or QuickTime. SONRISE AI accepts up to four images (JPEG, PNG, WebP, HEIC, HEIF), PDFs, or TXT/MD/CSV files per message, up to 3 MB each and 12 MB per request. Each request includes the four most recent attachments in the rolling conversation history. AI attachments are sent to Gemini for analysis and are not stored by the app. API secrets are used only by the server. SONRISE AI uses the server-side `GEMINI_API_KEY` through a rate-limited API endpoint. Restart the API after adding or changing the key.
+`npm run dev` starts the API, applies pending PostgreSQL migrations, and starts Vite. Open `http://localhost:5173`. The login and signup flows create PostgreSQL-backed accounts and issue an API session. Select "Save login on this device" to add the account to the device's Switch account list; choose "Add account" there to sign in with another account. Media uploads can be up to 100 MB and must be JPEG, PNG, WebP, GIF, MP4, WebM, or QuickTime. Trix AI accepts up to four images (JPEG, PNG, WebP, HEIC, HEIF), PDFs, or TXT/MD/CSV files per message, up to 3 MB each and 12 MB per request. Each request includes the four most recent attachments in the rolling conversation history. AI attachments are sent to Gemini for analysis and are not stored by the app. API secrets are used only by the server. Trix AI uses the server-side `GEMINI_API_KEY` through a rate-limited API endpoint. Restart the API after adding or changing the key.
 
 ## Run locally
 

@@ -165,8 +165,8 @@ export default function DiscoverPage({ onViewProfile, followedProfileIds = [], f
 
       <label className="discover-search">
         <Icon name="search" size={19} />
-        <span className="visually-hidden">Search SONRISETALK</span>
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search SONRISETALK" autoComplete="off" />
+        <span className="visually-hidden">Search Trex</span>
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Trex" autoComplete="off" />
         {query && <button type="button" aria-label="Clear search" onClick={() => setQuery('')}><Icon name="close" size={17} /></button>}
       </label>
 

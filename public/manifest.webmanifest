@@ -1,15 +1,15 @@
 {
   "id": "/",
-  "name": "SONRISETALK",
-  "short_name": "SONRISETALK",
+  "name": "Trex",
+  "short_name": "Trex",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#111212",
-  "theme_color": "#111212",
+  "background_color": "#0b0c0d",
+  "theme_color": "#0b0c0d",
   "icons": [
     {
-      "src": "/icon-512.png?v=2",
+      "src": "/icon-512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

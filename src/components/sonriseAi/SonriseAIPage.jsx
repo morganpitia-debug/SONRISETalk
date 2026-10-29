@@ -28,7 +28,7 @@ function AIMessage({ message, onManagePermissions }) {
     <article className={`sonrise-ai-message sonrise-ai-message--${message.role}`}>
       {message.role === 'assistant' && <span className="sonrise-ai-message__mark"><BrandMark size={17} /></span>}
       <div className="sonrise-ai-message__body">
-        <span className="sonrise-ai-message__author">{message.role === 'assistant' ? 'SONRISE AI' : 'You'}</span>
+        <span className="sonrise-ai-message__author">{message.role === 'assistant' ? 'Trex AI' : 'You'}</span>
         {message.text && <p>{message.text}</p>}
         {message.attachments?.length > 0 && <div className="sonrise-ai-message__attachments">
           {message.attachments.map((attachment) => attachment.file?.type.startsWith('image/')
@@ -228,17 +228,17 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
   const welcomeMessage = providerStatus === 'loading'
     ? 'Checking AI availability…'
     : providerStatus === 'available'
-      ? 'Ask SONRISE AI anything.'
+      ? 'Ask Trex AI anything.'
       : providerStatus === 'error'
         ? 'The AI service could not be reached.'
-        : 'SONRISE AI needs a Gemini API key.'
+        : 'Trex AI needs a Gemini API key.'
 
   return (
     <div className="sonrise-ai-page">
       <header className="sonrise-ai-page__header">
         <div className="sonrise-ai-page__title">
           <span className="sonrise-ai-page__eyebrow"><i /> YOUR ASSISTANT</span>
-          <h1>SONRISE AI</h1>
+          <h1>Trex AI</h1>
           <p>{providerStatus === 'available' ? 'A little light when you need it.' : 'AI responses need a configured provider.'}</p>
         </div>
         <div className="sonrise-ai-page__header-actions">
@@ -267,7 +267,7 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
 
         {historyOpen && <button className="sonrise-ai-history-backdrop" type="button" aria-label="Close conversation history" onClick={() => setHistoryOpen(false)} />}
 
-        <section className="sonrise-ai-chat" aria-label="SONRISE AI conversation">
+        <section className="sonrise-ai-chat" aria-label="Trex AI conversation">
           <div className="sonrise-ai-chat__topline">
             <span className="sonrise-ai-ready"><i /> {providerStatus === 'available' ? 'Ready' : accessLabel}</span>
             {currentConversation && <ConversationMenu onRename={openRename} onClear={clearConversation} onDelete={deleteConversation} />}
@@ -276,7 +276,7 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
             {messages.length === 0 ? (
               <div className="sonrise-ai-welcome">
                 <span className="sonrise-ai-welcome__mark"><BrandMark size={35} /></span>
-                <span className="sonrise-ai-page__eyebrow"><i /> SONRISE AI</span>
+                <span className="sonrise-ai-page__eyebrow"><i /> Trex AI</span>
                 <h2>{welcomeMessage}</h2>
                 <p>{providerStatus === 'available'
                   ? 'Your messages are sent securely through the server.'
@@ -294,7 +294,7 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
             )}
           </div>
           <form className="sonrise-ai-composer" onSubmit={submitPrompt}>
-            <label className="visually-hidden" htmlFor="sonrise-ai-prompt">Ask SONRISE AI</label>
+            <label className="visually-hidden" htmlFor="sonrise-ai-prompt">Ask Trex AI</label>
             <input
               ref={fileInputRef}
               className="visually-hidden"
@@ -322,8 +322,8 @@ export default function SonriseAIPage({ conversations, setConversations, activeC
                 <button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => removeAttachment(attachment.id)}><Icon name="close" size={13} /></button>
               </span>)}
             </div>}
-            <span className="sonrise-ai-composer__hint" role={error ? 'alert' : undefined}>{error || (sending ? 'SONRISE AI is thinking…' : canChat ? 'Enter to send · Shift+Enter for a new line' : providerStatus === 'unavailable' ? 'Add GEMINI_API_KEY in Render → your Web Service → Environment, then redeploy.' : 'Responses are unavailable until AI is configured.')}</span>
-            <button className="sonrise-ai-send" type="submit" aria-label="Send to SONRISE AI" disabled={!canChat || (!prompt.trim() && !attachments.length)}><Icon name="send" size={17} /></button>
+            <span className="sonrise-ai-composer__hint" role={error ? 'alert' : undefined}>{error || (sending ? 'Trex AI is thinking…' : canChat ? 'Enter to send · Shift+Enter for a new line' : providerStatus === 'unavailable' ? 'Add GEMINI_API_KEY in Render → your Web Service → Environment, then redeploy.' : 'Responses are unavailable until AI is configured.')}</span>
+            <button className="sonrise-ai-send" type="submit" aria-label="Send to Trex AI" disabled={!canChat || (!prompt.trim() && !attachments.length)}><Icon name="send" size={17} /></button>
           </form>
         </section>
       </div>

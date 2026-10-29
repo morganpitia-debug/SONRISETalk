@@ -38,7 +38,7 @@ export function readAIConversations(userId) {
           })),
       }))
   } catch (error) {
-    console.error('Could not read SONRISE AI conversation history.', error)
+    console.error('Could not read Trex AI conversation history.', error)
     return []
   }
 }
@@ -57,6 +57,6 @@ export function saveAIConversations(userId, conversations) {
     }))
     window.localStorage.setItem(historyKey(userId), JSON.stringify(serializableConversations))
   } catch (error) {
-    console.error('Could not save SONRISE AI conversation history.', error)
+    console.error('Could not save Trex AI conversation history.', error)
   }
 }

@@ -114,7 +114,7 @@ export function CurrentUserProfile({ user, onSwitchAccount, onViewProfile }) {
 export function HomeAIShortcut({ onOpen }) {
   return <button className="home-ai-shortcut" type="button" onClick={onOpen}>
     <span className="home-ai-shortcut__mark"><BrandMark size={18} /></span>
-    <span className="home-ai-shortcut__copy"><strong>SONRISE AI</strong><small>Open your assistant</small></span>
+    <span className="home-ai-shortcut__copy"><strong>Trex AI</strong><small>Open your assistant</small></span>
     <Icon name="arrow" size={15} />
   </button>
 }
@@ -123,10 +123,10 @@ export function SonriseAIHomeCard({ onOpen }) {
   return (
     <GlassSurface as="section" className="home-ai" aria-labelledby="home-ai-title">
       <div className="home-ai__top"><span className="home-ai__mark"><BrandMark size={22} /></span><span className="home-ai__label">A LITTLE LIGHT, WHEN YOU NEED IT</span><span className="home-ai__live" /></div>
-      <h2 id="home-ai-title">SONRISE <span>AI</span></h2>
+      <h2 id="home-ai-title">Trex <span>AI</span></h2>
       <p>Need help finding something in your world?</p>
       <div className="home-ai__actions"><button type="button" onClick={() => onOpen('Explore')}>Explore</button><button type="button" onClick={() => onOpen('Understand')}>Understand</button><button type="button" onClick={() => onOpen('Create')}>Create</button></div>
-      <button type="button" className="home-ai__open" onClick={() => onOpen('Hello')}>Open SONRISE AI <Icon name="arrow" size={14} /></button>
+      <button type="button" className="home-ai__open" onClick={() => onOpen('Hello')}>Open Trex AI <Icon name="arrow" size={14} /></button>
     </GlassSurface>
   )
 }

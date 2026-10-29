@@ -229,7 +229,7 @@ export default function CallOverlay({
         </>}
         {call && <audio ref={remoteAudioRef} autoPlay aria-label="Remote call audio" />}
         <div className="messages-call-info">
-          {call && <><UserAvatar person={{ profilePicture: call.peerProfilePicture }} className="messages-call-avatar" /><h2>{call.peerName}</h2><p>{incoming && call.callMode === 'group' ? call.isHost ? 'Your group call is active · ' : `Invitation from ${call.caller?.name || 'a group member'} · ` : ''}{status}{call.mediaType ? ` · ${call.mediaType} call` : ''}{call.callMode === 'group' && ` · ${groupParticipants.length} connected`}</p></>}
+          {call && <><UserAvatar person={{ profilePicture: call.peerProfilePicture }} className="messages-call-avatar" /><h2>{call.peerName}</h2><p className="messages-call-status-pill">{incoming && call.callMode === 'group' ? call.isHost ? 'Your group call is active · ' : `Invitation from ${call.caller?.name || 'a group member'} · ` : ''}{status}{call.mediaType ? ` · ${call.mediaType}` : ''}{call.callMode === 'group' && ` · ${groupParticipants.length} connected`}</p>{call.phase === 'active' && <p className="messages-call-encrypted-note">🔒 End-to-end encrypted</p>}</>}
           {(error || mediaError) && <p className="messages-call-error" role="alert">{error || mediaError}</p>}
           {activityError && <p className="messages-call-error" role="alert">{activityError}</p>}
         </div>
