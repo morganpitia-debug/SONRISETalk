@@ -443,7 +443,7 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
 
   return (
     <div className={`app-shell${sceneTheme === 'underwater' ? ' app-shell--underwater' : ''}${isHome ? ' app-shell--home' : ''}${isDiscover ? ' app-shell--discover' : ''}${isMessages ? ' app-shell--messages' : ''}${isCreate ? ' app-shell--create' : ''}${isProfile ? ' app-shell--profile' : ''}${isNotifications ? ' app-shell--notifications' : ''}${isSonriseAI ? ' app-shell--sonrise-ai' : ''}${isSettings || isMoreDestination ? ' app-shell--settings' : ''}${navExpanded ? ' is-nav-expanded' : ''}${isMessages && messagesChatOpen ? ' is-mobile-chat-open' : ''}`}>
-      <div className="underwater-base" aria-hidden="true" />
+      {sceneTheme === 'underwater' && <div className="underwater-base" aria-hidden="true" />}
       {sceneTheme === 'underwater' && <UnderwaterFishLayer />}
       <div className="app-shell__foreground">
       {!isSonriseAI && <header className="topbar">

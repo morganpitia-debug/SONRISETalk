@@ -14,7 +14,7 @@
   overflow: auto;
   isolation: isolate;
   color: var(--auth-text);
-  background: url('/auth-background.png') center / cover no-repeat fixed;
+  background: url('/auth-background.png') center center / cover no-repeat;
   transition: background-color 220ms ease, color 220ms ease;
 }
 .auth-page::before,.auth-page::after { position: absolute; z-index: -1; border-radius: 50%; content: ''; pointer-events: none; }
@@ -29,7 +29,7 @@
   --auth-subtle: #817a72;
   --auth-input: rgba(212,217,225, .9);
   --auth-shadow: 0 24px 70px rgba(59,71,88, .13);
-  background: url('/auth-background-light.jpg') center / cover no-repeat fixed;
+  background: url('/auth-background-light.jpg') center center / cover no-repeat;
 }
 .auth-page.is-light::before { background: rgba(59,121,214, .13); }
 .auth-page.is-light::after { background: rgba(59,121,214, .08); }

@@ -1,4 +1,4 @@
-.app-shell--sonrise-ai { height: 100svh; min-height: 0; overflow: hidden; background: url('/ai-background.jpg') center / cover no-repeat fixed; }
+.app-shell--sonrise-ai { height: 100svh; min-height: 0; overflow: hidden; background: url('/ai-background.jpg') center center / cover no-repeat !important; }
 .app-shell--sonrise-ai .page-transition { display: block; width: 100%; height: 100%; min-height: 0; padding: 36px 52px 28px; transition: padding 220ms ease; }
 .sonrise-ai-page { display: flex; width: min(1320px,100%); height: 100%; min-width: 0; flex-direction: column; margin: 0 auto; overflow: hidden; position: relative; }
 .sonrise-ai-page__header { display: flex; flex: 0 0 auto; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 4px 9px 18px; border-bottom: 1px solid rgba(255,255,255,.07); }
@@ -176,4 +176,4 @@
 :root[data-theme="light"] .sonrise-ai-rename-dialog h2,:root[data-theme="light"] .sonrise-ai-rename-dialog input { color: #302d29; }
 :root[data-theme="light"] .sonrise-ai-rename-dialog input { border-color: rgba(45,39,32,.12); background: rgba(255,255,255,.8); }
 
-:root[data-theme="light"] .app-shell--sonrise-ai { background: url('/ai-background-light.jpg') center / cover no-repeat fixed; }
+:root[data-theme="light"] .app-shell--sonrise-ai { background: url('/ai-background-light.jpg') center center / cover no-repeat !important; }

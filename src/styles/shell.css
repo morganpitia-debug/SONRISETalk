@@ -26,7 +26,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--brand-blue-brig
   display: grid;
   min-height: 100svh;
   overflow: hidden;
-  background: url('/main-background.png') center / cover no-repeat fixed;
+  background: url('/main-background.png') center center / cover no-repeat;
 }
 
 .underwater-base {
@@ -34,9 +34,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--brand-blue-brig
   z-index: 0;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 40% 45% at 56% 52%, rgba(36, 37, 37, 0.28), transparent 74%),
-    linear-gradient(125deg, #0b0c0d 0%, #101112 48%, #0b0c0d 100%);
+  display: none;
 }
 
 .underwater-base::before,
@@ -50,6 +48,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--brand-blue-brig
 }
 
 .app-shell--underwater .underwater-base {
+  display: block;
   background:
     radial-gradient(ellipse 76% 42% at 52% 0%, rgba(73, 109, 112, 0.2), transparent 76%),
     radial-gradient(ellipse 72% 56% at 50% 46%, rgba(24, 39, 42, 0.45), transparent 100%),
@@ -63,12 +62,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--brand-blue-brig
 .app-shell--underwater .underwater-base::after {
   background: radial-gradient(ellipse 55% 12% at 52% 0%, rgba(204, 231, 236, 0.09), transparent 90%);
 }
-:root[data-theme="light"] .app-shell:not(.app-shell--underwater) .underwater-base {
-  background:
-    radial-gradient(ellipse 40% 45% at 56% 52%, rgba(187,195,208, 0.62), transparent 74%),
-    linear-gradient(125deg, #d0d6de, #eeece8 48%, #d0d6de);
-}
 :root[data-theme="light"] .app-shell--underwater .underwater-base {
+  display: block;
   background:
     radial-gradient(ellipse 76% 42% at 52% 0%, rgba(113, 158, 164, 0.24), transparent 76%),
     radial-gradient(ellipse 72% 56% at 50% 46%, rgba(35, 69, 77, 0.66), transparent 100%),
@@ -239,7 +234,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--brand-blue-brig
 
 
 
-:root[data-theme="light"] .app-shell { background: url('/main-background-light.png') center / cover no-repeat fixed; }
+:root[data-theme="light"] .app-shell { background: url('/main-background-light.png') center center / cover no-repeat; }
 :root[data-theme="light"] .floating-navigation { border-color: rgba(0,0,0,.08); background: rgba(255,255,255,.92); box-shadow: 0 8px 32px rgba(0,0,0,.08), inset 0 -1px rgba(0,0,0,.04); }
 :root[data-theme="light"] .floating-navigation.is-expanded { border-color: rgba(0,0,0,.1); background: rgba(255,255,255,.97); box-shadow: 0 14px 48px rgba(0,0,0,.1); }
 :root[data-theme="light"] .navigation-item { color: #6b6660; }
