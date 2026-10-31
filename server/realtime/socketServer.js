@@ -1031,7 +1031,7 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             id: true,
             initiatorId: true,
             recipientId: true,
-            conversation: { select: { groupName: true } },
+            conversation: { select: { id: true, groupName: true } },
             participants: { where: { leftAt: null }, select: { userId: true } },
           },
         })
@@ -1050,6 +1050,48 @@ export function attachSocketServer(httpServer, { clientUrl }) {
         if (isGroupCall && !call.participants.some((participant) => participant.userId === userId)) {
           replyError(ack, 'CALL_NOT_FOUND', 'You are not a participant in this group call.')
           return
+        }
+        if (isChat && isGroupCall) {
+          const conversation = await conversationForMember(call.conversation.id, userId)
+          if (!conversation?.groupName) {
+            replyError(ack, 'CONVERSATION_NOT_FOUND', 'This group conversation is unavailable.')
+            return
+          }
+          const recipientIdsForMessage = conversation.members
+            .filter((member) => member.userId !== userId)
+            .map((member) => member.userId)
+          const deliveredAt = recipientIdsForMessage.some(isUserOnline) ? new Date() : null
+          const message = await prisma.$transaction(async (transaction) => {
+            const created = await transaction.message.create({
+              data: {
+                conversationId: conversation.id,
+                senderId: userId,
+                content: activity.text.trim(),
+                deliveredAt,
+              },
+              include: { sender: { include: { profile: true } } },
+            })
+            await transaction.conversation.update({
+              where: { id: conversation.id },
+              data: { updatedAt: created.createdAt },
+            })
+            const notificationRecipientIds = conversation.members
+              .filter((member) => member.userId !== userId && !member.muted)
+              .map(({ userId: recipientId }) => recipientId)
+            if (notificationRecipientIds.length) {
+              await transaction.notification.createMany({
+                data: notificationRecipientIds.map((recipientId) => ({
+                  recipientId,
+                  actorId: userId,
+                  type: 'MESSAGE',
+                  message: activity.text.trim().slice(0, 500),
+                  messageId: created.id,
+                })),
+              })
+            }
+            return created
+          })
+          io.to(conversationRoom(conversation.id)).emit('message:new', serializeMessage(message))
         }
         const data = { id: randomUUID(), callId: call.id, userId, activity, createdAt: new Date().toISOString() }
         for (const recipientId of recipientIds) {

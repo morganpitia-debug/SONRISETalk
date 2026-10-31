@@ -1,6 +1,7 @@
 import { randomBytes, createHash, randomUUID } from 'node:crypto'
 import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max'
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -65,7 +66,9 @@ router.post('/register', authLimiter, async (request, response, next) => {
     const { method, email, phone, username, name, password, birthday } = request.body ?? {}
     const normalizedUsername = typeof username === 'string' ? username.trim().toLowerCase() : ''
     const normalizedEmail = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : null
-    const normalizedPhone = typeof phone === 'string' && phone.trim() ? phone.trim() : null
+    const rawPhone = typeof phone === 'string' && phone.trim() ? phone.trim() : ''
+    const parsedPhone = rawPhone ? parsePhoneNumberFromString(rawPhone) : undefined
+    const normalizedPhone = parsedPhone?.isValid() ? parsedPhone.number : null
 
     if (!['email', 'phone'].includes(method)
       || !normalizedUsername || !/^[a-z0-9._]{3,30}$/.test(normalizedUsername)

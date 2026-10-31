@@ -42,6 +42,13 @@ export function setConversationNickname(conversationId, nickname) {
   })
 }
 
+export function setConversationWallpaper(conversationId, wallpaper) {
+  return requestData(`/api/conversations/${encodeURIComponent(conversationId)}/wallpaper`, {
+    method: 'PUT',
+    body: JSON.stringify({ wallpaper }),
+  })
+}
+
 export function getAddableGroupMembers(conversationId) {
   return requestData(`/api/conversations/${encodeURIComponent(conversationId)}/addable-members`)
 }

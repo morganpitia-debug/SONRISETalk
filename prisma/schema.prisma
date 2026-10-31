@@ -335,6 +335,7 @@ model Conversation {
   groupName           String?
   groupPicture        String?
   groupPictureAssetId String?
+  wallpaper           String              @default("default")
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   members     ConversationMember[]

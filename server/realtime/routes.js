@@ -44,6 +44,8 @@ router.get('/calls/history', requireAuth, async (request, response, next) => {
         initiator: { include: { profile: true } },
         recipient: { include: { profile: true } },
         conversation: { select: { groupName: true } },
+        participants: { where: { userId: request.auth.userId }, select: { userId: true } },
+        invitations: { where: { userId: request.auth.userId }, select: { status: true } },
       },
     })
     response.status(200).json({
@@ -57,6 +59,10 @@ router.get('/calls/history', requireAuth, async (request, response, next) => {
           acceptedAt: call.acceptedAt?.toISOString() ?? null,
           endedAt: call.endedAt?.toISOString() ?? null,
           isIncoming: call.recipientId === request.auth.userId,
+          isHost: Boolean(call.conversation.groupName) && call.initiatorId === request.auth.userId,
+          canJoin: call.conversation.groupName
+            ? call.participants.length > 0 || call.invitations.some((invitation) => invitation.status === 'invited')
+            : false,
           durationSeconds: call.acceptedAt && call.endedAt
             ? Math.max(0, Math.floor((call.endedAt.getTime() - call.acceptedAt.getTime()) / 1000))
             : 0,

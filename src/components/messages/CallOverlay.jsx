@@ -33,7 +33,7 @@ function GroupParticipantTile({ participant }) {
     <article className={`messages-call-participant${participant.isLocal ? ' is-local' : ''}`} aria-label={participant.isLocal ? 'You' : participant.name}>
       {participant.videoTrack
         ? <video ref={videoRef} autoPlay muted={participant.isLocal} playsInline aria-label={`${participant.isLocal ? 'Your' : `${participant.name}'s`} video`} />
-        : <UserAvatar person={{ name: participant.name }} className="messages-call-participant__avatar" />}
+        : <UserAvatar person={{ name: participant.name, profilePicture: participant.profilePicture }} className="messages-call-participant__avatar" />}
       {participant.audioTrack && !participant.isLocal && <audio ref={audioRef} autoPlay aria-label={`${participant.name} audio`} />}
       <span>{participant.isLocal ? 'You' : participant.name}</span>
     </article>
@@ -212,11 +212,13 @@ export default function CallOverlay({
         : call?.phase === 'active'
           ? formatDuration(call.acceptedAt, now)
           : 'Connecting…'
+  const handRaised = [...activities].reverse().find((event) => (
+    event.userId === currentUserId && event.activity?.type === 'hand'
+  ))?.activity.raised ?? false
 
   return (
     <div className="messages-call-overlay" role="dialog" aria-modal="true" aria-label={call ? `${call.mediaType} call` : 'Call status'}>
       <section className={`messages-call-card${call?.mediaType === 'video' ? ' is-video' : ''}${call?.callMode === 'group' ? ' is-group' : ''}`}>
-        {call?.callMode === 'group' && call.phase === 'active' && <button className="messages-call-add-people" type="button" aria-label="Invite people to this call" title="Invite people" onClick={() => setInviteOpen(true)}><Icon name="add" size={20} /><span>Invite</span></button>}
         {call && <>
           {call.callMode !== 'group' && <>
             <video ref={remoteVideoRef} className={`messages-call-remote-video${call.mediaType !== 'video' && !remoteScreenSharing ? ' is-hidden' : ''}`} autoPlay muted playsInline aria-label="Remote video" />
@@ -233,6 +235,7 @@ export default function CallOverlay({
           {(error || mediaError) && <p className="messages-call-error" role="alert">{error || mediaError}</p>}
           {activityError && <p className="messages-call-error" role="alert">{activityError}</p>}
         </div>
+        <div className="messages-call-controls" role="toolbar" aria-label="Call controls">
         {call && call.phase === 'active' && <>
           {visibleReaction && <div className="messages-call-reaction" aria-live="polite" key={visibleReaction.id}>
             <span>{visibleReaction.activity.emoji}</span>
@@ -275,49 +278,44 @@ export default function CallOverlay({
               <button type="submit" disabled={!chatDraft.trim()}>Send</button>
             </form>
           </section>}
-          <div className="messages-call-activities" aria-label="Call activities">
-            <button type="button" aria-expanded={reactionPickerOpen} onClick={() => setReactionPickerOpen((open) => !open)}>React</button>
-            {reactionPickerOpen && <div className="messages-call-reaction-picker" aria-label="Choose a reaction">
-              {['❤️', '😂', '👍', '👏', '🔥', '😮', '😢'].map((emoji) => <button key={emoji} type="button" aria-label={`Send ${emoji} reaction`} onClick={async () => {
+            <div className="messages-call-activities" role="group" aria-label="Call activities">
+              <button className="messages-call-control" type="button" aria-label="Send reaction" title="Send reaction" aria-expanded={reactionPickerOpen} onClick={() => setReactionPickerOpen((open) => !open)}><Icon name="emoji" size={18} /></button>
+              {reactionPickerOpen && <div className="messages-call-reaction-picker" aria-label="Choose a reaction">
+                {['❤️', '😂', '👍', '👏', '🔥', '😮', '😢'].map((emoji) => <button key={emoji} type="button" aria-label={`Send ${emoji} reaction`} onClick={async () => {
+                  setActivityError('')
+                  try {
+                    await onSendActivity({ type: 'reaction', emoji })
+                    setReactionPickerOpen(false)
+                  } catch (sendError) {
+                    setActivityError(sendError.message || 'The reaction could not be sent.')
+                  }
+                }}>{emoji}</button>)}
+              </div>}
+              <button className="messages-call-control" type="button" aria-expanded={chatOpen} aria-label={unreadChatCount > 0 ? `In-call chat, ${unreadChatCount} unread` : 'In-call chat'} title="In-call chat" onClick={() => {
+                setChatOpen((open) => {
+                  if (!open) setUnreadChatCount(0)
+                  return !open
+                })
+              }}><Icon name="messages" size={18} />{unreadChatCount > 0 && <span className="messages-call-control__badge">{unreadChatCount}</span>}</button>
+              <button className={`messages-call-control${screenStream ? ' is-toggled' : ''}`} type="button" aria-label={screenStream ? 'Stop sharing screen' : 'Share screen'} title={screenStream ? 'Stop sharing screen' : 'Share screen'} aria-pressed={Boolean(screenStream)} onClick={async () => {
                 setActivityError('')
                 try {
-                  await onSendActivity({ type: 'reaction', emoji })
-                  setReactionPickerOpen(false)
-                } catch (sendError) {
-                  setActivityError(sendError.message || 'The reaction could not be sent.')
+                  await onToggleScreenShare()
+                } catch (shareError) {
+                  setActivityError(shareError.message || 'Screen sharing could not be started.')
                 }
-              }}>{emoji}</button>)}
-            </div>}
-            <button type="button" aria-expanded={chatOpen} onClick={() => {
-              setChatOpen((open) => {
-                if (!open) setUnreadChatCount(0)
-                return !open
-              })
-            }}>Chat{unreadChatCount > 0 ? ` (${unreadChatCount})` : ''}</button>
-            <button type="button" aria-pressed={Boolean(screenStream)} onClick={async () => {
-              setActivityError('')
-              try {
-                await onToggleScreenShare()
-              } catch (shareError) {
-                setActivityError(shareError.message || 'Screen sharing could not be started.')
-              }
-            }}>{screenStream ? 'Stop sharing' : 'Share screen'}</button>
-            <button type="button" aria-pressed={(() => {
-              return [...activities].reverse().find((event) => event.userId === currentUserId && event.activity?.type === 'hand')?.activity.raised ?? false
-            })()} onClick={async () => {
-              const isRaised = [...activities].reverse().find((event) => event.userId === currentUserId && event.activity?.type === 'hand')?.activity.raised ?? false
-              setActivityError('')
-              try {
-                await onSendActivity({ type: 'hand', raised: !isRaised })
-              } catch (sendError) {
-                setActivityError(sendError.message || 'The hand status could not be updated.')
-              }
-            }}>✋ {(() => {
-              return [...activities].reverse().find((event) => event.userId === currentUserId && event.activity?.type === 'hand')?.activity.raised ? 'Lower hand' : 'Raise hand'
-            })()}</button>
-          </div>
-        </>}
-        <div className="messages-call-controls">
+              }}><Icon name="screen" size={18} /></button>
+              <button className={`messages-call-control${handRaised ? ' is-toggled' : ''}`} type="button" aria-label={handRaised ? 'Lower hand' : 'Raise hand'} title={handRaised ? 'Lower hand' : 'Raise hand'} aria-pressed={handRaised} onClick={async () => {
+                setActivityError('')
+                try {
+                  await onSendActivity({ type: 'hand', raised: !handRaised })
+                } catch (sendError) {
+                  setActivityError(sendError.message || 'The hand status could not be updated.')
+                }
+              }}><Icon name="hand" size={18} /></button>
+              {call.callMode === 'group' && <button className="messages-call-control" type="button" aria-label="Invite people to this call" title="Invite people" onClick={() => setInviteOpen(true)}><Icon name="add" size={18} /></button>}
+            </div>
+          </>}
           {incoming && <button className="messages-call-control is-accept" type="button" onClick={onAccept} aria-label={call.callMode === 'group' ? 'Join group call' : 'Answer call'}><Icon name="phone" size={19} /></button>}
           {incoming && <button className="messages-call-control is-decline" type="button" onClick={onDecline} aria-label={call.callMode === 'group' ? 'Dismiss group call' : 'Decline call'}><Icon name="phone" size={19} /></button>}
           {call && !incoming && <>
@@ -325,7 +323,7 @@ export default function CallOverlay({
             {call.mediaType === 'video' && <button className={`messages-call-control${!cameraEnabled ? ' is-toggled' : ''}`} type="button" onClick={onToggleCamera} aria-label={cameraEnabled ? 'Turn camera off' : 'Turn camera on'} aria-pressed={!cameraEnabled}><Icon name="video" size={18} /></button>}
             <button className="messages-call-control is-decline" type="button" onClick={() => onEnd('completed')} aria-label={call.callMode === 'group' && !call.initiator ? 'Leave group call' : call.callMode === 'group' ? 'End group call for everyone' : 'End call'}><Icon name="phone" size={19} /></button>
           </>}
-          {!call && error && <button className="messages-call-control" type="button" onClick={clearError}>Dismiss</button>}
+          {!call && error && <button className="messages-call-control" type="button" onClick={clearError} aria-label="Dismiss call error" title="Dismiss"><Icon name="close" size={18} /></button>}
         </div>
         {inviteOpen && call?.callMode === 'group' && <GroupCallInviteDialog
           candidates={inviteCandidates}

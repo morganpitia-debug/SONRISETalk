@@ -4,7 +4,7 @@ import Icon from '../Icon.jsx'
 import ProfilePhotoButton from '../ProfilePhotoButton.jsx'
 import UserAvatar from '../UserAvatar.jsx'
 import { getAvatarInitial } from '../../utils/avatar.js'
-import { addGroupMembers as addGroupMembersApi, createConversation, createRealtimeSocket, getAddableGroupMembers, getCallHistory, getConversations, getMessages, leaveGroup as leaveGroupApi, refreshVoiceNoteUrl, setConversationMuted, setConversationNickname, uploadVoiceNote } from '../../api/messaging.js'
+import { addGroupMembers as addGroupMembersApi, createConversation, createRealtimeSocket, getAddableGroupMembers, getCallHistory, getConversations, getMessages, leaveGroup as leaveGroupApi, refreshVoiceNoteUrl, setConversationMuted, setConversationNickname, setConversationWallpaper, uploadVoiceNote } from '../../api/messaging.js'
 import { deleteNote, getNotes, getPrivacySettings, getProfileConnections, reportUser, saveNote, updatePrivacySettings, uploadMedia } from '../../api/social.js'
 import { isApiEnabled } from '../../api/auth.js'
 import { CallManagerContext } from '../../hooks/useCallManager.js'
@@ -578,7 +578,60 @@ function GroupPeopleDialog({ conversation, currentUserId, onClose, onAdd, onLeav
   )
 }
 
-function ChatPanel({ conversation, conversations, messages, reactions, callHistory, onSend, onSendVoiceNote, onRefreshVoiceNote, onStartCall, callActive, onReact, onDeleteForEveryone, onForward, onNickname, onBlock, onMute, onReport, onAddGroupMembers, onLeaveGroup, userId, composerRef, onBack, onViewProfile, onTypingChange, isTyping, connectionState, initialDraft = null, onInitialDraftUsed }) {
+const groupWallpapers = [
+  { id: 'default', label: 'Default', swatch: 'linear-gradient(135deg,#242526,#171819)' },
+  { id: 'ember', label: 'Ember', swatch: 'linear-gradient(135deg,#7a3928,#311e20)' },
+  { id: 'ocean', label: 'Ocean', swatch: 'linear-gradient(135deg,#174b62,#182c48)' },
+  { id: 'forest', label: 'Forest', swatch: 'linear-gradient(135deg,#315342,#1e302d)' },
+  { id: 'violet', label: 'Violet', swatch: 'linear-gradient(135deg,#53406f,#30263f)' },
+]
+
+function GroupWallpaperDialog({ value, onClose, onSelect }) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  async function selectWallpaper(wallpaper) {
+    setSaving(true)
+    setError('')
+    try {
+      await onSelect(wallpaper)
+      onClose()
+    } catch (requestError) {
+      setError(requestError.message || 'The group wallpaper could not be changed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="messages-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="messages-modal messages-wallpaper-dialog" role="dialog" aria-modal="true" aria-labelledby="messages-wallpaper-title">
+        <div className="messages-modal__heading">
+          <div><span className="messages-eyebrow">SHARED WITH THE GROUP</span><h2 id="messages-wallpaper-title">Change wallpaper</h2></div>
+          <button className="messages-icon-button" type="button" aria-label="Close wallpaper options" onClick={onClose}><Icon name="close" size={18} /></button>
+        </div>
+        <p>Everyone in this group will see the selected wallpaper.</p>
+        <div className="messages-wallpaper-options">
+          {groupWallpapers.map((wallpaper) => <button
+            className={`messages-wallpaper-option${value === wallpaper.id ? ' is-selected' : ''}`}
+            key={wallpaper.id}
+            type="button"
+            aria-pressed={value === wallpaper.id}
+            disabled={saving}
+            onClick={() => selectWallpaper(wallpaper.id)}
+          >
+            <span style={{ background: wallpaper.swatch }} />
+            <strong>{wallpaper.label}</strong>
+            {value === wallpaper.id && <Icon name="check" size={16} />}
+          </button>)}
+        </div>
+        {error && <p className="messages-group-error" role="alert">{error}</p>}
+        <div className="messages-modal__actions"><button className="messages-secondary-button" type="button" disabled={saving} onClick={onClose}>Cancel</button></div>
+      </section>
+    </div>
+  )
+}
+
+function ChatPanel({ conversation, conversations, messages, reactions, callHistory, activeGroupCall, onJoinGroupCall, onSend, onSendVoiceNote, onRefreshVoiceNote, onStartCall, callActive, onReact, onDeleteForEveryone, onForward, onNickname, onBlock, onMute, onReport, onAddGroupMembers, onLeaveGroup, onChangeWallpaper, userId, composerRef, onBack, onViewProfile, onTypingChange, isTyping, connectionState, initialDraft = null, onInitialDraftUsed }) {
   const scrollRef = useRef(null)
   const [draft, setDraft] = useState('')
   const [selectedImage, setSelectedImage] = useState(null)
@@ -591,6 +644,7 @@ function ChatPanel({ conversation, conversations, messages, reactions, callHisto
   const [nicknamePermissionOpen, setNicknamePermissionOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [groupPeopleOpen, setGroupPeopleOpen] = useState(false)
+  const [wallpaperOpen, setWallpaperOpen] = useState(false)
   const [conversationNotice, setConversationNotice] = useState('')
   const [voiceStatus, setVoiceStatus] = useState('')
   const [voiceNoteRecording, setVoiceNoteRecording] = useState(false)
@@ -866,7 +920,7 @@ function ChatPanel({ conversation, conversations, messages, reactions, callHisto
   }
 
   return (
-    <section className="messages-chat" aria-label={`Conversation with ${conversation.name}`}>
+    <section className="messages-chat" data-wallpaper={groupWallpapers.some(({ id }) => id === conversation.wallpaper) ? conversation.wallpaper : 'default'} aria-label={`Conversation with ${conversation.name}`}>
       <header className="messages-chat__header">
         <button className="messages-icon-button messages-chat__back" type="button" aria-label="Back to conversations" onClick={onBack}><Icon name="back" size={19} /></button>
         <PersonAvatar person={conversation} onClick={conversation.profileId ? () => onViewProfile(conversation.profileId) : undefined} />
@@ -878,6 +932,7 @@ function ChatPanel({ conversation, conversations, messages, reactions, callHisto
         <div className="messages-chat__call-actions" aria-label="Calls">
           <button className="messages-icon-button" type="button" aria-label={conversation.groupName ? 'Start group voice call' : 'Start voice call'} title={conversation.groupName ? 'Group voice call' : 'Voice call'} disabled={conversation.groupName ? (conversation.members?.length ?? 0) < 3 || callActive : !conversation.profileId || callActive || conversation.blocked} onClick={() => onStartCall(conversation, 'audio')}><Icon name="phone" size={18} /></button>
           <button className="messages-icon-button" type="button" aria-label={conversation.groupName ? 'Start group video call' : 'Start video call'} title={conversation.groupName ? 'Group video call' : 'Video call'} disabled={conversation.groupName ? (conversation.members?.length ?? 0) < 3 || callActive : !conversation.profileId || callActive || conversation.blocked} onClick={() => onStartCall(conversation, 'video')}><Icon name="video" size={18} /></button>
+          {activeGroupCall && <button className="messages-call-join" type="button" disabled={callActive} onClick={() => onJoinGroupCall(activeGroupCall)}><Icon name="phone" size={15} /> Join</button>}
           </div>
         <ConversationMenu
           conversation={conversation}
@@ -890,6 +945,7 @@ function ChatPanel({ conversation, conversations, messages, reactions, callHisto
           onReport={() => setReportOpen(true)}
           onNicknamePermission={() => setNicknamePermissionOpen(true)}
           onSeePeople={() => setGroupPeopleOpen(true)}
+          onChangeWallpaper={() => setWallpaperOpen(true)}
         />
       </header>
       {conversation.blocked && <div className="messages-blocked-notice" role="status">You blocked {conversation.nickname || conversation.name}. Unblock them from conversation options to continue messaging.</div>}
@@ -991,6 +1047,11 @@ function ChatPanel({ conversation, conversations, messages, reactions, callHisto
         onAdd={onAddGroupMembers}
         onLeave={onLeaveGroup}
       />}
+      {wallpaperOpen && <GroupWallpaperDialog
+        value={conversation.wallpaper || 'default'}
+        onClose={() => setWallpaperOpen(false)}
+        onSelect={(wallpaper) => onChangeWallpaper(conversation.id, wallpaper)}
+      />}
       {reportOpen && <ReportConversationDialog
         conversation={conversation}
         targets={conversation.members?.filter((member) => member.id !== userId) || (conversation.profileId ? [{ id: conversation.profileId, name: conversation.name, username: conversation.handle?.replace(/^@/, '') || '' }] : [])}
@@ -1003,7 +1064,7 @@ function ChatPanel({ conversation, conversations, messages, reactions, callHisto
   )
 }
 
-function ConversationMenu({ conversation, onNickname, onBlock, onMute, onReport, onNicknamePermission, onSeePeople }) {
+function ConversationMenu({ conversation, onNickname, onBlock, onMute, onReport, onNicknamePermission, onSeePeople, onChangeWallpaper }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="messages-menu">
@@ -1013,7 +1074,10 @@ function ConversationMenu({ conversation, onNickname, onBlock, onMute, onReport,
         {!conversation.groupName && <button type="button" role="menuitem" onClick={() => { setOpen(false); onNickname() }}>{conversation.nickname ? 'Edit nickname' : 'Add nickname'}</button>}
         {!conversation.groupName && conversation.nickname && <button type="button" role="menuitem" onClick={() => { onNickname(true); setOpen(false) }}>Remove nickname</button>}
         <button type="button" role="menuitem" onClick={() => { setOpen(false); onMute(conversation.id, !conversation.muted) }}>{conversation.muted ? 'Unmute messages' : 'Mute messages'}</button>
-        {conversation.groupName && <button type="button" role="menuitem" onClick={() => { setOpen(false); onSeePeople() }}>See people</button>}
+        {conversation.groupName && <>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onChangeWallpaper() }}>Change wallpaper</button>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onSeePeople() }}>See people</button>
+        </>}
         <button type="button" role="menuitem" onClick={() => { setOpen(false); onNicknamePermission() }}>Who can nickname me</button>
         {(conversation.profileId || conversation.members?.length > 1) && <button type="button" role="menuitem" className="is-danger" onClick={() => { setOpen(false); onReport() }}>{conversation.groupName ? 'Report a member' : 'Report account'}</button>}
         <button type="button" role="menuitem" className={conversation.blocked ? '' : 'is-danger'} onClick={() => { onBlock(conversation.id); setOpen(false) }}>{conversation.blocked ? 'Unblock' : `Block ${conversation.nickname || conversation.name}`}</button>
@@ -1244,6 +1308,13 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
     }), [])
   const composerRef = useRef(null)
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedId)
+  const activeGroupCall = selectedConversation?.groupName
+    ? callManager?.availableGroupCalls?.find((item) => item.conversationId === selectedConversation.id)
+      || callHistory.find((item) => item.conversationId === selectedConversation.id && item.status === 'connected' && item.otherParticipant?.group && item.canJoin)
+    : null
+  const joinableGroupCall = activeGroupCall && !activeGroupCall.callMode
+    ? { ...activeGroupCall, callMode: 'group', groupName: selectedConversation.groupName }
+    : activeGroupCall
   conversationsRef.current = conversations
 
   useEffect(() => {
@@ -1376,9 +1447,20 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
         connection.on('connect', () => setConnectionState('connected'))
         connection.on('disconnect', () => setConnectionState('reconnecting'))
         connection.on('call:ended', ({ status }) => {
-          if (status === 'missed') {
-            reloadCallHistory().catch((error) => setMessagingError(error.message || 'Missed-call history could not refresh.'))
-          }
+          reloadCallHistory().catch((error) => setMessagingError(error.message || (status === 'missed' ? 'Missed-call history could not refresh.' : 'Call history could not refresh.')))
+        })
+        connection.on('call:group-incoming', (incomingCall) => {
+          setCallHistory((current) => [{
+            id: incomingCall.id,
+            conversationId: incomingCall.conversationId,
+            mediaType: incomingCall.mediaType,
+            status: 'connected',
+            startedAt: incomingCall.startedAt,
+            acceptedAt: incomingCall.acceptedAt,
+            canJoin: true,
+            otherParticipant: { id: incomingCall.conversationId, name: incomingCall.groupName, group: true },
+          }, ...current.filter((item) => item.id !== incomingCall.id)])
+          reloadCallHistory().catch((error) => setMessagingError(error.message || 'Active group calls could not be refreshed.'))
         })
         connection.on('connect_error', (error) => {
           setConnectionState('reconnecting')
@@ -1417,6 +1499,9 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
           if (conversationsRef.current.some((item) => item.id === conversationId)) {
             reloadConversations().catch((error) => setMessagingError(error.message || 'Group members could not be refreshed.'))
           }
+        })
+        connection.on('conversation:wallpaper', ({ conversationId, wallpaper }) => {
+          setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, wallpaper } : item))
         })
         connection.on('conversation:removed', ({ conversationId }) => {
           connection.emit('conversation:leave', { conversationId })
@@ -1731,6 +1816,12 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
       setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, muted: previous } : item))
       setMessagingError(error.message || 'The conversation mute setting could not be saved.')
     }
+
+    async function changeGroupWallpaper(conversationId, wallpaper) {
+      if (!usesApi) throw new Error('Sign in to change a shared group wallpaper.')
+      const result = await setConversationWallpaper(conversationId, wallpaper)
+      setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, wallpaper: result.wallpaper } : item))
+    }
   }
 
   async function reportConversationAccount(userId, report) {
@@ -1860,7 +1951,7 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
         </section>
         <div className="messages-chat-panel">
           {selectedConversation
-            ? <ChatPanel conversation={selectedConversation} conversations={conversations} messages={messages} reactions={reactions} callHistory={callHistory} onSend={sendMessage} onSendVoiceNote={sendVoiceNote} onRefreshVoiceNote={refreshVoiceNote} onStartCall={callManager?.startCall || onStartCall} callActive={Boolean(callManager?.call) || callActive} onReact={toggleReaction} onDeleteForEveryone={deleteMessageForEveryone} onForward={forwardMessage} onNickname={setNickname} onBlock={toggleBlocked} onMute={toggleMuted} onReport={reportConversationAccount} onAddGroupMembers={addPeopleToGroup} onLeaveGroup={leaveGroupConversation} userId={currentUser.id} composerRef={composerRef} onBack={() => setConversationOpen(false)} onViewProfile={onViewProfile} onTypingChange={changeTyping} isTyping={Boolean(typingByConversation[selectedConversation.id])} connectionState={connectionState} initialDraft={selectedConversation.profileId === openProfile?.id ? pendingStoryReply : null} onInitialDraftUsed={() => setPendingStoryReply(null)} />
+            ? <ChatPanel conversation={selectedConversation} conversations={conversations} messages={messages} reactions={reactions} callHistory={callHistory} activeGroupCall={joinableGroupCall} onJoinGroupCall={callManager?.joinGroupCall} onSend={sendMessage} onSendVoiceNote={sendVoiceNote} onRefreshVoiceNote={refreshVoiceNote} onStartCall={callManager?.startCall || onStartCall} callActive={Boolean(callManager?.call) || callActive} onReact={toggleReaction} onDeleteForEveryone={deleteMessageForEveryone} onForward={forwardMessage} onNickname={setNickname} onBlock={toggleBlocked} onMute={toggleMuted} onReport={reportConversationAccount} onAddGroupMembers={addPeopleToGroup} onLeaveGroup={leaveGroupConversation} onChangeWallpaper={changeGroupWallpaper} userId={currentUser.id} composerRef={composerRef} onBack={() => setConversationOpen(false)} onViewProfile={onViewProfile} onTypingChange={changeTyping} isTyping={Boolean(typingByConversation[selectedConversation.id])} connectionState={connectionState} initialDraft={selectedConversation.profileId === openProfile?.id ? pendingStoryReply : null} onInitialDraftUsed={() => setPendingStoryReply(null)} />
             : <EmptyChat />}
         </div>
         <aside className="messages-details" aria-label="Conversation details">

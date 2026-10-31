@@ -49,12 +49,14 @@ export default function useCallManager(enabled, currentUserId) {
   const [cameraEnabled, setCameraEnabled] = useState(true)
   const [screenStream, setScreenStream] = useState(null)
   const [groupParticipants, setGroupParticipants] = useState([])
+  const [availableGroupCalls, setAvailableGroupCalls] = useState([])
   const [callError, setCallError] = useState('')
   const [callActivities, setCallActivities] = useState([])
   const socketRef = useRef(null)
   const callRef = useRef(null)
   const peerRef = useRef(null)
   const groupRoomRef = useRef(null)
+  const groupProfilePicturesRef = useRef(new Map())
   const videoSenderRef = useRef(null)
   const screenStreamRef = useRef(null)
   const cameraTrackRef = useRef(null)
@@ -258,6 +260,7 @@ export default function useCallManager(enabled, currentUserId) {
     const { Room, RoomEvent, Track } = await import('livekit-client')
     const room = new Room({ adaptiveStream: true, dynacast: true })
     groupRoomRef.current = room
+    groupProfilePicturesRef.current = new Map((credentials.participants ?? []).map(({ userId, profilePicture }) => [userId, profilePicture]))
     const readParticipants = () => {
       if (groupRoomRef.current !== room) return
       const readMediaTrack = (participant, source) => participant.getTrackPublication(source)?.track?.mediaStreamTrack ?? null
@@ -266,6 +269,7 @@ export default function useCallManager(enabled, currentUserId) {
         {
           userId: localParticipant.identity,
           name: localParticipant.name || 'You',
+          profilePicture: groupProfilePicturesRef.current.get(localParticipant.identity) || null,
           isLocal: true,
           audioTrack: readMediaTrack(localParticipant, Track.Source.Microphone),
           videoTrack: readMediaTrack(localParticipant, Track.Source.ScreenShare) || readMediaTrack(localParticipant, Track.Source.Camera),
@@ -273,6 +277,7 @@ export default function useCallManager(enabled, currentUserId) {
         ...[...room.remoteParticipants.values()].map((participant) => ({
           userId: participant.identity,
           name: participant.name || 'Participant',
+          profilePicture: groupProfilePicturesRef.current.get(participant.identity) || null,
           isLocal: false,
           audioTrack: readMediaTrack(participant, Track.Source.Microphone),
           videoTrack: readMediaTrack(participant, Track.Source.ScreenShare) || readMediaTrack(participant, Track.Source.Camera),
@@ -355,24 +360,12 @@ export default function useCallManager(enabled, currentUserId) {
       })
       connection.on('call:group-incoming', (incomingCall) => {
         if (callRef.current?.id === incomingCall.id && callRef.current.callMode === 'group') {
-          emitAck(connection, 'call:group-join', { callId: incomingCall.id }).catch((error) => {
-            setCallError(error.message || 'The group call could not reconnect to signaling.')
-          })
           return
         }
-        if (callRef.current) {
-          emitAck(connection, 'call:group-decline', { callId: incomingCall.id }).catch((error) => setCallError(error.message))
-          return
-        }
-        updateCall({
-          ...incomingCall,
-          callMode: 'group',
-          phase: 'incoming',
-          initiator: Boolean(incomingCall.isHost),
-          peerName: incomingCall.groupName,
-          peerProfilePicture: null,
-          currentUserId,
-        })
+        setAvailableGroupCalls((current) => [
+          incomingCall,
+          ...current.filter((item) => item.id !== incomingCall.id),
+        ])
       })
       connection.on('call:accepted', async ({ callId, acceptedAt }) => {
         const activeCall = callRef.current
@@ -396,6 +389,7 @@ export default function useCallManager(enabled, currentUserId) {
       connection.on('call:participant-joined', ({ callId, participant }) => {
         const activeCall = callRef.current
         if (activeCall?.id !== callId || !participant?.userId) return
+        if (participant.profilePicture) groupProfilePicturesRef.current.set(participant.userId, participant.profilePicture)
         updateCall({
           ...activeCall,
           invitedPeople: (activeCall.invitedPeople ?? []).filter((person) => person.userId !== participant.userId),
@@ -410,6 +404,7 @@ export default function useCallManager(enabled, currentUserId) {
         })
       })
       connection.on('call:ended', ({ callId, status }) => {
+        setAvailableGroupCalls((current) => current.filter((item) => item.id !== callId))
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.controller?.postMessage({ type: 'CALL_ENDED', callId })
         }
@@ -529,6 +524,31 @@ export default function useCallManager(enabled, currentUserId) {
       endCall('failed')
     }
   }, [cleanupMedia, connectGroupCall, createPeer, endCall, getCallAudioContext, updateCall])
+
+  const joinGroupCall = useCallback(async (incomingCall) => {
+    if (!incomingCall || callRef.current) return false
+    getCallAudioContext()
+    setCallError('')
+    const joiningCall = {
+      ...incomingCall,
+      callMode: 'group',
+      phase: 'connecting',
+      initiator: Boolean(incomingCall.isHost),
+      peerName: incomingCall.groupName || incomingCall.peerName || 'Group call',
+      currentUserId,
+    }
+    updateCall(joiningCall)
+    try {
+      await connectGroupCall(joiningCall)
+      setAvailableGroupCalls((current) => current.filter((item) => item.id !== joiningCall.id))
+      return true
+    } catch (error) {
+      cleanupMedia()
+      updateCall(null)
+      setCallError(error.message || 'The group call could not be joined.')
+      return false
+    }
+  }, [cleanupMedia, connectGroupCall, currentUserId, getCallAudioContext, updateCall])
 
   const declineCall = useCallback(() => {
     const activeCall = callRef.current
@@ -676,11 +696,13 @@ export default function useCallManager(enabled, currentUserId) {
     cameraEnabled,
     screenStream,
     groupParticipants,
+    availableGroupCalls,
     callActivities,
     callError,
     clearCallError: () => setCallError(''),
     startCall,
     acceptCall,
+    joinGroupCall,
     declineCall,
     endCall,
     toggleMute,

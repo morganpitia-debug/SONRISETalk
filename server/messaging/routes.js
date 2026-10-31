@@ -152,6 +152,7 @@ router.get('/', async (request, response, next) => {
         members,
         groupName: conversation.groupName,
         groupPicture: conversation.groupPicture,
+        wallpaper: conversation.wallpaper,
         profilePicture: conversation.groupPicture || (otherMembers.length === 1 ? otherMembers[0].profilePicture : null),
         name: conversation.groupName || (otherMembers.length > 1 ? otherMembers.map((item) => item.name).join(', ') : otherMembers[0]?.name ?? 'Conversation'),
         handle: conversation.groupName ? `${members.length} members` : otherMembers.length === 1 ? otherMembers[0].handle : `${otherMembers.length} members`,
@@ -190,6 +191,41 @@ router.put('/:conversationId/mute', async (request, response, next) => {
     }
     await prisma.conversationMember.update({ where: { id: membership.id }, data: { muted } })
     response.status(200).json({ data: { muted } })
+  } catch (error) {
+    next(error)
+  }
+})
+
+const GROUP_WALLPAPERS = new Set(['default', 'ember', 'ocean', 'forest', 'violet'])
+
+router.put('/:conversationId/wallpaper', async (request, response, next) => {
+  try {
+    const wallpaper = request.body?.wallpaper
+    if (typeof wallpaper !== 'string' || !GROUP_WALLPAPERS.has(wallpaper)) {
+      response.status(400).json({ error: { code: 'INVALID_GROUP_WALLPAPER', message: 'Choose one of the available group wallpapers.' } })
+      return
+    }
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: request.params.conversationId,
+        groupName: { not: null },
+        members: { some: { userId: request.auth.userId } },
+      },
+      select: { id: true },
+    })
+    if (!conversation) {
+      response.status(404).json({ error: { code: 'GROUP_NOT_FOUND', message: 'This group is unavailable.' } })
+      return
+    }
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { wallpaper },
+    })
+    getRealtimeServer()?.to(conversationRoom(conversation.id)).emit('conversation:wallpaper', {
+      conversationId: conversation.id,
+      wallpaper,
+    })
+    response.status(200).json({ data: { wallpaper } })
   } catch (error) {
     next(error)
   }
