@@ -54,13 +54,13 @@ test('service worker shows only valid incoming-call push payloads without duplic
     title: 'Alex is calling',
     body: 'Group incoming voice call',
     tag: `incoming-call-${callId}`,
-    data: { callId, url: '/' },
+    data: { callId, url: `/?incomingCallId=${callId}` },
   })
 
   assert.equal(notifications.length, 1)
   assert.equal(notifications[0].options.tag, `incoming-call-${callId}`)
   assert.equal(notifications[0].options.renotify, false)
-  assert.deepEqual(JSON.parse(JSON.stringify(notifications[0].options.data)), { callId, url: '/' })
+  assert.deepEqual(JSON.parse(JSON.stringify(notifications[0].options.data)), { callId, url: `/?incomingCallId=${callId}` })
 })
 
 test('service worker ignores malformed push payloads and calls while the app is visible', async () => {
@@ -71,14 +71,14 @@ test('service worker ignores malformed push payloads and calls while the app is 
     title: 'Alex is calling',
     body: 'Group incoming voice call',
     tag: `incoming-call-${callId}`,
-    data: { callId, url: '/' },
+    data: { callId, url: `/?incomingCallId=${callId}` },
   })
   await dispatchPush(handlers, { title: 'untrusted payload' })
 
   assert.equal(notifications.length, 0)
 })
 
-test('notification clicks open the app root and focus an existing same-origin window', async () => {
+test('notification clicks open the incoming call page and focus an existing same-origin window', async () => {
   const actions = []
   const client = {
     url: 'https://sonrisetalk.example/messages',
@@ -89,7 +89,7 @@ test('notification clicks open the app root and focus an existing same-origin wi
   let completion
   handlers.get('notificationclick')({
     notification: {
-      data: { callId, url: '/' },
+      data: { callId, url: `/?incomingCallId=${callId}` },
       close: () => actions.push(['close']),
     },
     waitUntil: (promise) => { completion = promise },
@@ -98,7 +98,7 @@ test('notification clicks open the app root and focus an existing same-origin wi
 
   assert.deepEqual(actions, [
     ['close'],
-    ['navigate', 'https://sonrisetalk.example/'],
+    ['navigate', `https://sonrisetalk.example/?incomingCallId=${callId}`],
     ['focus'],
   ])
 })
@@ -110,7 +110,7 @@ test('service worker closes an incoming-call alert when the call ends', async ()
     title: 'Alex is calling',
     body: 'Group incoming voice call',
     tag: `incoming-call-${callId}`,
-    data: { callId, url: '/' },
+    data: { callId, url: `/?incomingCallId=${callId}` },
   })
 
   let completion

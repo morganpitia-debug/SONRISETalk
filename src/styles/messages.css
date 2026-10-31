@@ -251,7 +251,11 @@
 .messages-call-control:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.14); }
 .messages-call-control:focus-visible { outline: 2px solid #f3a173; outline-offset: 3px; }
 .messages-call-control.is-accept { background: linear-gradient(135deg,#2ecc71,#27ae60); border-color: rgba(46,204,113,.4); color: #fff; box-shadow: 0 0 25px rgba(46,204,113,.3); }
-.messages-call-control.is-decline { background: linear-gradient(135deg,#e74c3c,#c0392b); border-color: rgba(231,76,60,.4); color: #fff; transform: rotate(135deg); box-shadow: 0 0 25px rgba(231,76,60,.3); }
+.messages-call-control.is-decline { background: linear-gradient(135deg,#e74c3c,#c0392b); border-color: rgba(231,76,60,.4); color: #fff; box-shadow: 0 0 25px rgba(231,76,60,.3); }
+.messages-call-control.is-decline svg { transform: rotate(135deg); }
+.messages-call-control.is-accept,.messages-call-control.is-decline { display: inline-flex; width: auto; min-width: 116px; height: 48px; flex-basis: auto; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: 700; }
+.messages-call-control:disabled { cursor: not-allowed; opacity: .5; }
+.messages-call-screen-share-note { margin-top: 12px !important; color: rgba(255,220,170,.9) !important; font-size: 12px !important; }
 .messages-call-control.is-toggled { background: rgba(0,150,200,.25); border-color: rgba(0,180,230,.3); color: #5ce0ff; }
 .messages-call-activities { display: contents; }
 .messages-call-control__badge { position: absolute; top: -3px; right: -3px; display: grid; min-width: 17px; height: 17px; place-items: center; padding: 0 3px; border: 1px solid rgba(255,255,255,.75); border-radius: 10px; background: #d65b37; color: #fff; font-size: 9px; font-weight: 700; }

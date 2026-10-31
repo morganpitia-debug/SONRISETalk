@@ -9,6 +9,8 @@ import { isApiEnabled } from '../../api/auth.js'
 function mapProfile(profile) {
   const content = (profile.posts || []).map((post) => ({
     ...post,
+    media: post.media || post.mediaItems?.[0]?.url || '',
+    mediaType: post.mediaType || post.mediaItems?.[0]?.type || post.type || 'image',
     title: post.title || post.body || '',
     caption: post.body || post.title || '',
     views: 0,
@@ -226,11 +228,40 @@ function ReportAccountDialog({ profile, onClose, onSubmit }) {
 }
 
 function ContentArtwork({ item, className = '' }) {
+  const [mediaFailed, setMediaFailed] = useState(false)
+  const media = typeof item.media === 'string'
+    ? item.media
+    : item.media?.url || item.mediaItems?.[0]?.url || ''
+  const mediaType = item.mediaType || item.mediaItems?.[0]?.type || item.type
+  const hasMedia = Boolean(media && !mediaFailed)
+
+  useEffect(() => {
+    setMediaFailed(false)
+  }, [media])
+
   return (
-    <span className={`profile-art profile-art--${item.tone} ${className}`.trim()} aria-hidden="true">
-      <span className="profile-art__orb" />
-      {item.media ? <img className="profile-art__media" src={item.media} alt="" /> : item.symbol && <span className="profile-art__symbol">{item.symbol}</span>}
-      <span className="profile-art__horizon" />
+    <span className={`profile-art profile-art--${item.tone}${hasMedia ? ' profile-art--media' : ''} ${className}`.trim()} aria-hidden={className ? undefined : 'true'}>
+      {hasMedia ? mediaType === 'video' || mediaType === 'reel' ? (
+        <video
+          className="profile-art__media"
+          src={media}
+          muted
+          playsInline
+          preload="metadata"
+          autoPlay={!className}
+          loop={!className}
+          controls={Boolean(className)}
+          onError={() => setMediaFailed(true)}
+        />
+      ) : (
+        <img className="profile-art__media" src={media} alt="" onError={() => setMediaFailed(true)} />
+      ) : (
+        <>
+          <span className="profile-art__orb" />
+          {item.symbol && <span className="profile-art__symbol">{item.symbol}</span>}
+          <span className="profile-art__horizon" />
+        </>
+      )}
     </span>
   )
 }

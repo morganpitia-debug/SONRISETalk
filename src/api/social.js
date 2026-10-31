@@ -9,9 +9,10 @@ export function searchUsers(query, { signal } = {}) {
   return requestData(`/api/users/search?${params.toString()}`, { signal })
 }
 
-export function updateProfile(profile) {
+export function updateProfile(profile, token) {
   return request('/api/profiles/me', {
     method: 'PATCH',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: JSON.stringify({
       name: profile.name,
       username: profile.username,
@@ -202,12 +203,16 @@ export function updatePrivacySettings(privacy) {
   })
 }
 
-export function uploadMedia(file) {
+export function uploadMedia(file, token) {
   const data = new FormData()
   const mimeType = file.type.split(';', 1)[0].trim().toLowerCase()
   const uploadFile = mimeType && mimeType !== file.type
     ? new File([file], file.name, { type: mimeType, lastModified: file.lastModified })
     : file
   data.append('file', uploadFile)
-  return request('/api/media/upload', { method: 'POST', body: data }).then(({ data: media }) => media)
+  return request('/api/media/upload', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: data,
+  }).then(({ data: media }) => media)
 }

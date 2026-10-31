@@ -198,6 +198,8 @@ export default function CallOverlay({
 
   if (!call && !error) return null
   const incoming = call?.phase === 'incoming'
+  const screenShareSupported = typeof navigator !== 'undefined'
+    && Boolean(navigator.mediaDevices?.getDisplayMedia)
   const peerId = call ? (call.initiator ? call.recipientId : call.initiatorId) : null
   const currentUserId = call?.currentUserId || peerId
   const remoteScreenSharing = [...activities].reverse().find((event) => (
@@ -233,6 +235,7 @@ export default function CallOverlay({
         <div className="messages-call-info">
           {call && <><UserAvatar person={{ profilePicture: call.peerProfilePicture }} className="messages-call-avatar" /><h2>{call.peerName}</h2><p className="messages-call-status-pill">{incoming && call.callMode === 'group' ? call.isHost ? 'Your group call is active · ' : `Invitation from ${call.caller?.name || 'a group member'} · ` : ''}{status}{call.mediaType ? ` · ${call.mediaType}` : ''}{call.callMode === 'group' && ` · ${groupParticipants.length} connected`}</p>{call.phase === 'active' && <p className="messages-call-encrypted-note">🔒 End-to-end encrypted</p>}</>}
           {(error || mediaError) && <p className="messages-call-error" role="alert">{error || mediaError}</p>}
+          {call.phase === 'active' && !screenShareSupported && <p className="messages-call-screen-share-note" role="status">Screen sharing is not supported by this browser. Try a browser that supports screen capture.</p>}
           {activityError && <p className="messages-call-error" role="alert">{activityError}</p>}
         </div>
         <div className="messages-call-controls" role="toolbar" aria-label="Call controls">
@@ -297,7 +300,7 @@ export default function CallOverlay({
                   return !open
                 })
               }}><Icon name="messages" size={18} />{unreadChatCount > 0 && <span className="messages-call-control__badge">{unreadChatCount}</span>}</button>
-              <button className={`messages-call-control${screenStream ? ' is-toggled' : ''}`} type="button" aria-label={screenStream ? 'Stop sharing screen' : 'Share screen'} title={screenStream ? 'Stop sharing screen' : 'Share screen'} aria-pressed={Boolean(screenStream)} onClick={async () => {
+              <button className={`messages-call-control${screenStream ? ' is-toggled' : ''}`} type="button" disabled={!screenStream && !screenShareSupported} aria-label={screenStream ? 'Stop sharing screen' : screenShareSupported ? 'Share screen' : 'Screen sharing is not supported in this browser'} title={screenStream ? 'Stop sharing screen' : screenShareSupported ? 'Share screen' : 'Screen sharing is not supported in this browser'} aria-pressed={Boolean(screenStream)} onClick={async () => {
                 setActivityError('')
                 try {
                   await onToggleScreenShare()
@@ -316,8 +319,8 @@ export default function CallOverlay({
               {call.callMode === 'group' && <button className="messages-call-control" type="button" aria-label="Invite people to this call" title="Invite people" onClick={() => setInviteOpen(true)}><Icon name="add" size={18} /></button>}
             </div>
           </>}
-          {incoming && <button className="messages-call-control is-accept" type="button" onClick={onAccept} aria-label={call.callMode === 'group' ? 'Join group call' : 'Answer call'}><Icon name="phone" size={19} /></button>}
-          {incoming && <button className="messages-call-control is-decline" type="button" onClick={onDecline} aria-label={call.callMode === 'group' ? 'Dismiss group call' : 'Decline call'}><Icon name="phone" size={19} /></button>}
+          {incoming && <button className="messages-call-control is-accept" type="button" onClick={onAccept} aria-label={call.callMode === 'group' ? 'Join group call' : 'Answer call'}><Icon name="phone" size={19} /><span>{call.callMode === 'group' ? 'Join' : 'Accept'}</span></button>}
+          {incoming && <button className="messages-call-control is-decline" type="button" onClick={onDecline} aria-label={call.callMode === 'group' ? 'Dismiss group call' : 'Decline call'}><Icon name="phone" size={19} /><span>Decline</span></button>}
           {call && !incoming && <>
             <button className={`messages-call-control${muted ? ' is-toggled' : ''}`} type="button" onClick={onToggleMute} aria-label={muted ? 'Unmute microphone' : 'Mute microphone'} aria-pressed={muted}><Icon name="microphone" size={18} /></button>
             {call.mediaType === 'video' && <button className={`messages-call-control${!cameraEnabled ? ' is-toggled' : ''}`} type="button" onClick={onToggleCamera} aria-label={cameraEnabled ? 'Turn camera off' : 'Turn camera on'} aria-pressed={!cameraEnabled}><Icon name="video" size={18} /></button>}

@@ -74,6 +74,7 @@ export function createRealtimeSocket() {
   return import('socket.io-client').then(({ io }) => io(apiBaseUrl || undefined, {
     auth: { token: getAuthToken() },
     withCredentials: true,
+    autoConnect: false,
     reconnection: true,
     reconnectionAttempts: Infinity,
     timeout: 10000,

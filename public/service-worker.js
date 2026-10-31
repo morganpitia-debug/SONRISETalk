@@ -32,7 +32,7 @@ self.addEventListener('push', (event) => {
       badge: '/icon-192.png?v=4',
       tag: `incoming-call-${callId}`,
       renotify: false,
-      data: { callId, url: '/' },
+      data: { callId, url: `/?incomingCallId=${encodeURIComponent(callId)}` },
     })
   })())
 })
@@ -40,17 +40,19 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const notificationData = event.notification.data
-  if (notificationData?.url !== '/' || typeof notificationData.callId !== 'string') return
-  const targetUrl = new URL('/', self.location.origin).href
+  if (typeof notificationData?.callId !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationData.callId)) return
+  const targetUrl = new URL('/', self.location.origin)
+  targetUrl.searchParams.set('incomingCallId', notificationData.callId)
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const client of windows) {
       if (new URL(client.url).origin === self.location.origin) {
-        await client.navigate(targetUrl)
+        await client.navigate(targetUrl.href)
         return client.focus()
       }
     }
-    return self.clients.openWindow(targetUrl)
+    return self.clients.openWindow(targetUrl.href)
   })())
 })
 

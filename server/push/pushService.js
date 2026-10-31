@@ -46,7 +46,7 @@ export async function sendIncomingCallPush(userId, call) {
       title: `${callerName || 'Someone'} is calling`,
       body: `${groupCall ? 'Group ' : ''}incoming ${call.mediaType === 'video' ? 'video' : 'voice'} call`,
       tag: `incoming-call-${callId}`,
-      data: { callId, url: '/' },
+      data: { callId, url: `/?incomingCallId=${encodeURIComponent(callId)}` },
     })
 
     await Promise.all(subscriptions.map(async (subscription) => {

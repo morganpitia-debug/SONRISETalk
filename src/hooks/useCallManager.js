@@ -66,6 +66,20 @@ export default function useCallManager(enabled, currentUserId) {
   const recoveryTimerRef = useRef(null)
   const recoveryAttemptsRef = useRef(0)
   const callAudioContextRef = useRef(null)
+  const pendingIncomingCallIdRef = useRef(
+    typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search).get('incomingCallId'),
+  )
+
+  const clearIncomingCallLink = (callId) => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('incomingCallId') !== callId) return
+    url.searchParams.delete('incomingCallId')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+    pendingIncomingCallIdRef.current = null
+  }
 
   const getCallAudioContext = useCallback(() => {
     if (typeof window === 'undefined') return null
@@ -357,15 +371,20 @@ export default function useCallManager(enabled, currentUserId) {
           peerProfilePicture: incomingCall.caller?.profilePicture || null,
           currentUserId,
         })
+        clearIncomingCallLink(incomingCall.id)
       })
       connection.on('call:group-incoming', (incomingCall) => {
         if (callRef.current?.id === incomingCall.id && callRef.current.callMode === 'group') {
           return
         }
-        setAvailableGroupCalls((current) => [
-          incomingCall,
-          ...current.filter((item) => item.id !== incomingCall.id),
-        ])
+        const isRequestedCall = pendingIncomingCallIdRef.current === incomingCall.id
+        setAvailableGroupCalls((current) => {
+          const calls = [incomingCall, ...current.filter((item) => item.id !== incomingCall.id)]
+          return isRequestedCall
+            ? calls.sort((first, second) => Number(second.id === incomingCall.id) - Number(first.id === incomingCall.id))
+            : calls
+        })
+        clearIncomingCallLink(incomingCall.id)
       })
       connection.on('call:accepted', async ({ callId, acceptedAt }) => {
         const activeCall = callRef.current
@@ -422,6 +441,10 @@ export default function useCallManager(enabled, currentUserId) {
           updateCall({ ...callRef.current, phase: 'active' })
         }
       })
+      connection.on('connect_error', (error) => {
+        setCallError(error.message || 'Call signaling could not connect.')
+      })
+      connection.connect()
     }).catch((error) => {
       if (mounted) setCallError(error.message || 'Call signaling could not connect.')
     })

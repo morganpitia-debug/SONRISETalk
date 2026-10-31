@@ -13,6 +13,7 @@ import {
   verifyPasskeyRecovery,
   verifyPasskeyRegistration,
 } from '../../api/auth.js'
+import { updateProfile, uploadMedia } from '../../api/social.js'
 
 const countryNames = new Intl.DisplayNames(['en'], { type: 'region' })
 const countries = getCountries()
@@ -126,6 +127,8 @@ export default function AuthExperience({ theme, onAuthenticated, isAddingAccount
   const [authSubmitting, setAuthSubmitting] = useState(false)
   const [authToken, setAuthToken] = useState('')
   const [authenticatedUser, setAuthenticatedUser] = useState(null)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [profilePhotoNotice, setProfilePhotoNotice] = useState('')
   const apiEnabled = isApiEnabled()
 
   useEffect(() => () => {
@@ -309,7 +312,7 @@ export default function AuthExperience({ theme, onAuthenticated, isAddingAccount
       .catch((error) => setRecoveryStatus(error.message || 'Password reset failed.'))
   }
 
-  function finishSignup(event) {
+  async function finishSignup(event) {
     event.preventDefault()
     const nextErrors = {}
     if (form.password.length < 8) nextErrors.password = 'Password must be at least 8 characters.'
@@ -320,6 +323,7 @@ export default function AuthExperience({ theme, onAuthenticated, isAddingAccount
     }
     setErrors({})
     setAuthError('')
+    setProfilePhotoNotice('')
     if (apiEnabled) {
       const parsedBirthday = form.year && form.month && form.day
         ? new Date(Date.UTC(Number(form.year), Number(form.month) - 1, Number(form.day))).toISOString()
@@ -328,22 +332,53 @@ export default function AuthExperience({ theme, onAuthenticated, isAddingAccount
         ? parsePhoneNumberFromString(form.phone.trim(), form.country.code)?.number
         : undefined
       setAuthSubmitting(true)
-      registerAccount({
-        method: form.method,
-        email: form.method === 'email' ? form.email.trim() : undefined,
-        phone: parsedPhone,
-        username: form.username.trim().replace(/^@+/, '').toLowerCase(),
-        name: form.name.trim(),
-        birthday: parsedBirthday,
-        password: form.password,
-      })
-        .then(({ data }) => {
-          setAuthToken(data.token)
-          setAuthenticatedUser(data.user)
-          setScreen('success')
+      try {
+        const { data } = await registerAccount({
+          method: form.method,
+          email: form.method === 'email' ? form.email.trim() : undefined,
+          phone: parsedPhone,
+          username: form.username.trim().replace(/^@+/, '').toLowerCase(),
+          name: form.name.trim(),
+          birthday: parsedBirthday,
+          password: form.password,
         })
-        .catch((error) => setAuthError(error.message || 'Account creation failed.'))
-        .finally(() => setAuthSubmitting(false))
+        let user = data.user
+        if (photoFile) {
+          try {
+            const allowedPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+            const photoMimeType = photoFile.type.split(';', 1)[0].trim().toLowerCase()
+            if (!allowedPhotoTypes.has(photoMimeType)) {
+              throw new Error('Choose a JPEG, PNG, WebP, or GIF image for your profile photo.')
+            }
+            const uploaded = await uploadMedia(photoFile, data.token)
+            if (!uploaded?.url || !uploaded.assetId || uploaded.resourceType !== 'image' || !allowedPhotoTypes.has(uploaded.mimeType)) {
+              throw new Error('The selected file was not confirmed as a supported profile image.')
+            }
+            const profile = await updateProfile({
+              name: data.user.name,
+              username: data.user.username,
+              bio: '',
+              profilePicture: {
+                url: uploaded.url,
+                assetId: uploaded.assetId,
+                mediaType: uploaded.resourceType,
+                contentType: uploaded.mimeType,
+              },
+            }, data.token)
+            user = { ...data.user, profilePicture: profile.profilePicture }
+          } catch (error) {
+            console.error('The account was created, but its profile photo could not be saved.', error)
+            setProfilePhotoNotice(`Your account was created, but the profile photo could not be saved. You can add it from your profile. ${error.message || ''}`.trim())
+          }
+        }
+        setAuthToken(data.token)
+        setAuthenticatedUser(user)
+        setScreen('success')
+      } catch (error) {
+        setAuthError(error.message || 'Account creation failed.')
+      } finally {
+        setAuthSubmitting(false)
+      }
       return
     }
     setScreen('success')
@@ -445,7 +480,13 @@ export default function AuthExperience({ theme, onAuthenticated, isAddingAccount
         {step === 5 && <>
           <AuthHeading title="Add a profile picture" subtitle="Help people recognize you." />
           <div className="auth-photo-preview">{form.photo ? <img src={form.photo} alt="Profile preview" /> : <BrandMark size={45} />}</div>
-          <input className="auth-file-input" id="signup-photo" type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) update('photo', URL.createObjectURL(file)) }} />
+          <input className="auth-file-input" id="signup-photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) {
+              setPhotoFile(file)
+              update('photo', URL.createObjectURL(file))
+            }
+          }} />
           <label className="auth-photo-button" htmlFor="signup-photo">Add photo</label>
           <div className="auth-actions auth-actions--profile"><button className="auth-secondary" type="button" onClick={() => setStep(4)}>Back</button><button className="auth-secondary" type="button" onClick={() => setStep(6)}>Skip for now</button><button className="auth-primary" type="button" onClick={() => setStep(6)}>Continue</button></div>
         </>}
@@ -474,6 +515,7 @@ export default function AuthExperience({ theme, onAuthenticated, isAddingAccount
       {screen === 'remember' && <div className="auth-form auth-success">
         <div className="auth-success__mark"><BrandMark size={40} /></div>
         <AuthHeading title="Save your login?" subtitle="Choose whether Sonrisetalk should remember your login on this device." />
+        {profilePhotoNotice && <p className="auth-notice" role="status">{profilePhotoNotice}</p>}
         {authenticatedUser?.hasPasskey === false && <div className="auth-passkey-prompt">
           <strong>Enable password recovery</strong>
           <p>A passkey lets your device verify you without email, phone, or username. Your biometric stays on your device.</p>
