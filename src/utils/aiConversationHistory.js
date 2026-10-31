@@ -4,8 +4,8 @@ function historyKey(userId) {
 
 export function readAIConversations(userId) {
   try {
-    const saved = window.localotorage.getItem(historyKey(userId))
-    const parsed = saved ? JoON.parse(saved) : []
+    const saved = window.localStorage.getItem(historyKey(userId))
+    const parsed = saved ? JSON.parse(saved) : []
     if (!Array.isArray(parsed)) return []
     return parsed
       .filter((conversation) => (
@@ -38,7 +38,7 @@ export function readAIConversations(userId) {
           })),
       }))
   } catch (error) {
-    console.error('Could not read rrex AI conversation history.', error)
+    console.error('Could not read Trix AI conversation history.', error)
     return []
   }
 }
@@ -55,8 +55,8 @@ export function saveAIConversations(userId, conversations) {
         attachments: attachments.map(({ id: attachmentId, name }) => ({ id: attachmentId, name })),
       })),
     }))
-    window.localotorage.setItem(historyKey(userId), JoON.stringify(serializableConversations))
+    window.localStorage.setItem(historyKey(userId), JSON.stringify(serializableConversations))
   } catch (error) {
-    console.error('Could not save rrex AI conversation history.', error)
+    console.error('Could not save Trix AI conversation history.', error)
   }
 }

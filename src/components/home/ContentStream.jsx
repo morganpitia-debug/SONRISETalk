@@ -208,7 +208,7 @@ function VideoPost({ post, onOpen }) {
   )
 }
 
-function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, onToggleFollow, onSave, onHide, onDelete, onViewProfile }) {
+function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, onToggleFollow, onSave, onHide, onDelete, onViewProfile, variant }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState(null)
   const [deleteError, setDeleteError] = useState('')
@@ -225,7 +225,7 @@ function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, 
   const isVideo = post.type === 'video' || post.type === 'reel'
 
   return (
-    <article className="post-card">
+    <article className={`post-card${variant === 'saved' ? ' post-card--saved' : ''}`}>
       <div className="post-card__header">
         <div className="post-card__author">
           <ProfilePhotoButton person={post} onViewProfile={onViewProfile}>
@@ -295,7 +295,7 @@ function PostCard({ post, liked, followed, saved, comments, onReact, onDiscuss, 
   )
 }
 
-export default function ContentStream({ posts, reactions, savedPosts, commentsByPost, followedProfileIds, onReact, onDiscuss, onToggleFollow, onSave, onHide, onDelete, onLoadMore, onViewProfile, loadingMore, loading }) {
+export default function ContentStream({ posts, reactions, savedPosts, commentsByPost, followedProfileIds, onReact, onDiscuss, onToggleFollow, onSave, onHide, onDelete, onLoadMore, onViewProfile, loadingMore, loading, variant = 'feed' }) {
   const sentinelRef = useRef(null)
 
   useEffect(() => {
@@ -309,7 +309,7 @@ export default function ContentStream({ posts, reactions, savedPosts, commentsBy
   }, [onLoadMore])
 
   return (
-    <section className="content-stream feed-stream" aria-label="Posts">
+    <section className={`content-stream feed-stream${variant === 'saved' ? ' content-stream--saved' : ''}`} aria-label={variant === 'saved' ? 'Saved posts' : 'Posts'}>
       {posts.length ? (
         <div className="feed-list">
           {posts.map((post) => (
@@ -325,6 +325,7 @@ export default function ContentStream({ posts, reactions, savedPosts, commentsBy
               onHide={onHide}
               onDelete={onDelete}
               onViewProfile={onViewProfile}
+              variant={variant}
             />
           ))}
         </div>

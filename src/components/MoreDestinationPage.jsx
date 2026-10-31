@@ -174,7 +174,7 @@ export default function MoreDestinationPage({
         {savedLoading
           ? <div className="feed-loading" role="status"><span className="feed-loading__spinner" />Loading saved posts...</div>
           : savedPosts.length
-            ? <ContentStream posts={savedPosts} reactions={reactions} savedPosts={{}} commentsByPost={commentsByPost} followedProfileIds={followedProfileIds} onReact={togglePostLike} onDiscuss={updatePostComments} onToggleFollow={onToggleFollow} onSave={removeSavedPost} onLoadMore={() => {}} onViewProfile={onViewProfile} />
+            ? <ContentStream posts={savedPosts} reactions={reactions} savedPosts={{}} commentsByPost={commentsByPost} followedProfileIds={followedProfileIds} onReact={togglePostLike} onDiscuss={updatePostComments} onToggleFollow={onToggleFollow} onSave={removeSavedPost} onLoadMore={() => {}} onViewProfile={onViewProfile} variant="saved" />
             : !savedError && <section className="settings-section-card saved-page__empty"><Icon name="saved" size={23} /><h2>No saved posts yet</h2><p>Bookmark a post to keep it here. When you want it again, open More → Saved.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Home')}>Browse posts</button></section>}
       </>}
       {page === 'History' && <section className="settings-section-card saved-page__empty"><Icon name="history" size={23} /><h2>Activity history isn’t available yet</h2><p>Sonrisetalk does not currently keep a browsable activity log. Your saved posts are available in More → Saved, and updates appear in Notifications.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Notifications')}>Open notifications</button></section>}
