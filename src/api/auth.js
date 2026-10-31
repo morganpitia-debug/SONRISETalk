@@ -99,6 +99,9 @@ export async function request(path, { method = 'GET', body, headers = {}, signal
     const contentType = response.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
       const payload = await response.json()
+      if (payload.error?.code === 'UNAUTHENTICATED' && typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('sonrisetalk:session-ended'))
+      }
       throw new Error(payload.error?.message || `Request failed: ${response.status}`)
     }
     const text = await response.text()

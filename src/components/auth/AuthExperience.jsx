@@ -24,17 +24,7 @@ function countryFlag(code) {
   return String.fromCodePoint(...code.toUpperCase().split('').map((letter) => letter.charCodeAt(0) + 127397))
 }
 
-function ThemeToggle({ theme, onThemeChange }) {
-  const light = theme === 'light'
-  return (
-    <button className="auth-theme-toggle" type="button" aria-label={`Switch to ${light ? 'dark' : 'light'} theme`} onClick={() => onThemeChange(light ? 'dark' : 'light')}>
-      <Icon name={light ? 'moon' : 'sun'} size={17} />
-      <span>{light ? 'Light' : 'Dark'}</span>
-    </button>
-  )
-}
-
-function AuthLayout({ theme, onThemeChange, children, step }) {
+function AuthLayout({ theme, children, step }) {
   return (
     <main className={`auth-page${theme === 'light' ? ' is-light' : ''}`}>
       <header className="auth-header">
@@ -42,7 +32,6 @@ function AuthLayout({ theme, onThemeChange, children, step }) {
           <BrandMark size={35} />
           <span>SONRISE<span>TALK</span></span>
         </a>
-        <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
       </header>
       <div className="auth-content">
         <section className="auth-card" key={step}>
@@ -124,10 +113,10 @@ function validDate(day, month, year) {
   return date.getFullYear() === Number(year) && date.getMonth() === Number(month) - 1 && date.getDate() === Number(day) && date <= new Date()
 }
 
-export default function AuthExperience({ theme, onThemeChange, onAuthenticated, isAddingAccount, onCancelAddAccount }) {
+export default function AuthExperience({ theme, onAuthenticated, isAddingAccount, onCancelAddAccount, sessionEnded = false, initialLoginIdentifier = '' }) {
   const [screen, setScreen] = useState('login')
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState({ method: 'email', email: '', phone: '', country: countries.find(({ code }) => code === 'RW') || countries[0], name: '', username: '', day: '', month: '', year: '', photo: '', password: '', confirmPassword: '', loginIdentifier: '', loginPassword: '', resetPassword: '', resetConfirmPassword: '' })
+  const [form, setForm] = useState({ method: 'email', email: '', phone: '', country: countries.find(({ code }) => code === 'RW') || countries[0], name: '', username: '', day: '', month: '', year: '', photo: '', password: '', confirmPassword: '', loginIdentifier: initialLoginIdentifier, loginPassword: '', resetPassword: '', resetConfirmPassword: '' })
   const [errors, setErrors] = useState({})
   const [recoveryStatus, setRecoveryStatus] = useState('')
   const [recoveryProfile, setRecoveryProfile] = useState(null)
@@ -361,11 +350,12 @@ export default function AuthExperience({ theme, onThemeChange, onAuthenticated, 
   }
 
   return (
-    <AuthLayout theme={theme} onThemeChange={onThemeChange} step={screen === 'signup' ? step : screen}>
+    <AuthLayout theme={theme} step={screen === 'signup' ? step : screen}>
       {screen === 'login' && <form className="auth-form" onSubmit={submitLogin} noValidate>
         {isAddingAccount && <button className="auth-back-button" type="button" aria-label="Return to app" onClick={onCancelAddAccount}><Icon name="back" size={16} /><span>Return</span></button>}
         <div className="auth-brand-mark"><BrandMark size={27} /></div>
         <AuthHeading title="Welcome back" subtitle="Log in to continue to Sonrisetalk." />
+        {sessionEnded && <p className="auth-notice auth-notice--session-ended" role="status">Your account is safe. This device needs a fresh sign-in to continue.</p>}
         <label className="auth-field" htmlFor="login-identifier"><span>Email, phone or username</span><input id="login-identifier" type="text" autoComplete="username" value={form.loginIdentifier} onChange={(event) => update('loginIdentifier', event.target.value)} /><FieldError>{errors.loginIdentifier}</FieldError></label>
         <div><PasswordInput id="login-password" label="Password" value={form.loginPassword} onChange={(value) => update('loginPassword', value)} /><FieldError>{errors.loginPassword}</FieldError></div>
         <div className="auth-forgot-row"><button type="button" onClick={openPasswordRecovery}>Forgot password?</button></div>

@@ -57,7 +57,7 @@ export default function App() {
   const [activePage, setActivePage] = useState('Home')
   const apiEnabled = isApiEnabled()
   const [authenticated, setAuthenticated] = useState(() => apiEnabled
-    ? Boolean(window.localStorage.getItem('sonrisetalk-auth-token'))
+    ? Boolean(window.localStorage.getItem('sonrisetalk-auth-token') || window.sessionStorage.getItem('sonrisetalk-auth-token'))
     : window.localStorage.getItem('sonrisetalk-session') === 'saved')
   const [account, setAccount] = useState(readStoredAccount)
   const [savedAccounts, setSavedAccounts] = useState(readSavedAccounts)
@@ -65,6 +65,8 @@ export default function App() {
   const [sceneTheme, setSceneTheme] = useState(() => window.localStorage.getItem('sonrisetalk-scene-theme') === 'underwater' ? 'underwater' : 'default')
   const [addingAccount, setAddingAccount] = useState(false)
   const [previousSession, setPreviousSession] = useState(null)
+  const [sessionEnded, setSessionEnded] = useState(false)
+  const [loginHint, setLoginHint] = useState('')
 
   function completeAuthentication(remember, token, user) {
     if (remember) window.localStorage.setItem('sonrisetalk-session', 'saved')
@@ -94,6 +96,8 @@ export default function App() {
       setSavedAccounts(updated)
     }
     setAccount(user || null)
+    setSessionEnded(false)
+    setLoginHint('')
     setActivePage('Home')
     setAuthenticated(true)
   }
@@ -101,6 +105,13 @@ export default function App() {
   function selectSavedAccount(username) {
     const selectedAccount = savedAccounts.find((item) => item.username.toLowerCase() === username.toLowerCase())
     if (!selectedAccount) return
+    if (!selectedAccount.token) {
+      setLoginHint(username)
+      setSessionEnded(true)
+      setActivePage('Home')
+      setAuthenticated(false)
+      return
+    }
     const { token, ...user } = selectedAccount
     window.localStorage.setItem('sonrisetalk-auth-token', token)
     window.localStorage.setItem('sonrisetalk-auth-profile', JSON.stringify(user))
@@ -108,6 +119,8 @@ export default function App() {
     window.sessionStorage.removeItem('sonrisetalk-auth-token')
     window.sessionStorage.removeItem('sonrisetalk-auth-profile')
     setAccount(user)
+    setSessionEnded(false)
+    setLoginHint('')
     setActivePage('Home')
     setAuthenticated(true)
   }
@@ -186,8 +199,37 @@ export default function App() {
     setActivePage('Home')
     setAuthenticated(false)
     setAccount(null)
+    setSessionEnded(false)
+    setLoginHint('')
     if (revocationError) console.error('Could not revoke the server session:', revocationError)
   }
+
+  useEffect(() => {
+    if (!authenticated || !apiEnabled) return undefined
+    let handled = false
+    function handleSessionEnded() {
+      if (handled) return
+      handled = true
+      const username = account?.username || ''
+      window.localStorage.removeItem('sonrisetalk-auth-token')
+      window.sessionStorage.removeItem('sonrisetalk-auth-token')
+      if (account?.id) {
+        const updated = savedAccounts.map((item) => item.id === account.id ? { ...item, token: '' } : item)
+        setSavedAccounts(updated)
+        try {
+          window.localStorage.setItem('sonrisetalk-saved-accounts', JSON.stringify(updated))
+        } catch (error) {
+          console.error('Could not update saved account sign-in status.', error)
+        }
+      }
+      setLoginHint(username)
+      setSessionEnded(true)
+      setAccount(null)
+      setAuthenticated(false)
+    }
+    window.addEventListener('sonrisetalk:session-ended', handleSessionEnded)
+    return () => window.removeEventListener('sonrisetalk:session-ended', handleSessionEnded)
+  }, [account, apiEnabled, authenticated, savedAccounts])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -199,6 +241,6 @@ export default function App() {
     window.localStorage.setItem('sonrisetalk-scene-theme', sceneTheme)
   }, [sceneTheme])
 
-  if (!authenticated) return <AuthExperience theme={theme} onThemeChange={setTheme} onAuthenticated={completeAuthentication} isAddingAccount={addingAccount} onCancelAddAccount={cancelAddAccount} />
+  if (!authenticated) return <AuthExperience theme={theme} onAuthenticated={completeAuthentication} isAddingAccount={addingAccount} onCancelAddAccount={cancelAddAccount} sessionEnded={sessionEnded} initialLoginIdentifier={loginHint} />
   return <AppShell key={account?.id ?? 'account-session'} activePage={activePage} onNavigate={setActivePage} theme={theme} onThemeChange={setTheme} sceneTheme={sceneTheme} onSceneThemeChange={setSceneTheme} onLogout={logout} authUser={account} savedAccounts={savedAccounts} onSelectSavedAccount={selectSavedAccount} onAddAccount={addAccount} onUpdateSavedAccount={updateSavedAccount} />
 }

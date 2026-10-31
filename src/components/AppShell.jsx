@@ -456,13 +456,6 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
           <GlassSurface as="button" className={`utility-button${isSettings ? ' is-current' : ''}`} type="button" aria-label="Settings" aria-current={isSettings ? 'page' : undefined} onClick={() => onNavigate('Settings')}>
             <Icon name="settings" size={18} />
           </GlassSurface>
-          <button className="theme-toggle" type="button" aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} onClick={() => onThemeChange(theme === 'dark' ? 'light' : 'dark')}>
-            <span className={`theme-toggle__track${theme === 'light' ? ' is-light' : ''}`}>
-              <span className="theme-toggle__thumb">
-                <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={12} />
-              </span>
-            </span>
-          </button>
         </div>
       </header>}
 

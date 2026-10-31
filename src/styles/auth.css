@@ -47,8 +47,6 @@
 .auth-brand { display: inline-flex; align-items: center; gap: 9px; color: var(--auth-text); text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; }
 .auth-brand > svg { color: var(--orange); filter: drop-shadow(0 0 9px rgba(241,122,69, .2)); }
 .auth-brand > span > span { color: var(--auth-muted); font-weight: 500; }
-.auth-theme-toggle { display: inline-flex; min-width: 78px; min-height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; border: 1px solid var(--auth-card-line); border-radius: 12px; background: var(--auth-card); color: var(--auth-muted); font-size: 11px; cursor: pointer; transition: border-color 160ms ease, color 160ms ease, transform 160ms ease; }
-.auth-theme-toggle:hover { border-color: rgba(241,122,69, .4); color: var(--orange); transform: translateY(-1px); }
 .auth-content { display: grid; min-height: 0; place-items: center; padding: 8px 20px 26px; }
 .auth-card { width: min(100%, 452px); padding: clamp(26px, 4vw, 39px); border: 1px solid var(--auth-card-line); border-radius: 22px; background: var(--auth-card); box-shadow: var(--auth-shadow), inset 0 1px rgba(255,255,255,.045); -webkit-backdrop-filter: blur(23px); backdrop-filter: blur(23px); animation: auth-card-arrive 260ms cubic-bezier(.2,.7,.2,1) both; }
 .auth-form { display: grid; gap: 18px; }
@@ -84,6 +82,7 @@
 .auth-forgot-row { display: flex; justify-content: flex-end; margin-top: -10px; }
 .auth-forgot-row button { font-size: 11px; }
 .auth-notice,.auth-verification-note { margin: -5px 0 0; color: var(--auth-subtle); font-size: 10px; line-height: 1.5; }
+.auth-notice--session-ended { padding: 11px 12px; border: 1px solid rgba(241,122,69,.2); border-radius: 10px; background: rgba(241,122,69,.07); color: var(--auth-muted); }
 .auth-verification-note { text-align: center; }
 .auth-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid var(--auth-card-line); border-radius: 11px; background: var(--auth-input); }
 .auth-choice button { min-height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--auth-muted); font-size: 11px; cursor: pointer; }
@@ -169,5 +168,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-card { animation: none; }
-  .auth-page,.auth-theme-toggle,.auth-primary,.auth-secondary,.auth-field input,.auth-field select { transition: none; }
+  .auth-page,.auth-primary,.auth-secondary,.auth-field input,.auth-field select { transition: none; }
 }

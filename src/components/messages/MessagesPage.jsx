@@ -1816,12 +1816,12 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
       setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, muted: previous } : item))
       setMessagingError(error.message || 'The conversation mute setting could not be saved.')
     }
+  }
 
-    async function changeGroupWallpaper(conversationId, wallpaper) {
-      if (!usesApi) throw new Error('Sign in to change a shared group wallpaper.')
-      const result = await setConversationWallpaper(conversationId, wallpaper)
-      setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, wallpaper: result.wallpaper } : item))
-    }
+  async function changeGroupWallpaper(conversationId, wallpaper) {
+    if (!usesApi) throw new Error('Sign in to change a shared group wallpaper.')
+    const result = await setConversationWallpaper(conversationId, wallpaper)
+    setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, wallpaper: result.wallpaper } : item))
   }
 
   async function reportConversationAccount(userId, report) {

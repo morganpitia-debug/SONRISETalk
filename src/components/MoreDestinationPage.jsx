@@ -82,11 +82,23 @@ export default function MoreDestinationPage({
   const [savedLoading, setSavedLoading] = useState(false)
   const [savedError, setSavedError] = useState('')
   const [refreshSaved, setRefreshSaved] = useState(0)
+  const [savedQuery, setSavedQuery] = useState('')
   const [reactions, setReactions] = useState({})
   const [commentsByPost, setCommentsByPost] = useState({})
   const [actionError, setActionError] = useState('')
   const titles = { Saved: 'Saved', History: 'Your activity', 'Help & support': 'Help & support', 'About Sonrisetalk': 'About Sonrisetalk' }
   const currentUsername = account.username?.replace(/^@/, '').toLowerCase()
+  const normalizedSavedQuery = savedQuery.trim().toLowerCase()
+  const visibleSavedPosts = normalizedSavedQuery
+    ? savedPosts.filter((post) => [
+      post.author,
+      post.handle,
+      post.title,
+      post.body,
+      post.context,
+      post.format,
+    ].some((value) => typeof value === 'string' && value.toLowerCase().includes(normalizedSavedQuery)))
+    : savedPosts
 
   useEffect(() => {
     if (page !== 'Saved') return undefined
@@ -168,14 +180,35 @@ export default function MoreDestinationPage({
     <div className="settings-page more-destination">
       <header className="settings-header"><span className="settings-eyebrow"><span /> YOUR SPACE</span><h1>{titles[page] || page}</h1><p>{page === 'Saved' ? 'Posts you bookmarked are kept here so you can find them again.' : page === 'History' ? 'A simple record of things you have done.' : page === 'Help & support' ? 'Clear steps for using the main parts of Sonrisetalk.' : page === 'Switch account' ? 'Choose an account saved on this device, or log in to add another.' : page === 'About Sonrisetalk' ? 'A messaging and social space made to help people stay connected.' : 'A quieter kind of together.'}</p></header>
       {page === 'Saved' && <>
-        <div className="saved-page__toolbar"><p>Only you can see the posts you save.</p><button className="settings-link-button" type="button" onClick={() => setRefreshSaved((current) => current + 1)} disabled={savedLoading}><Icon name="history" size={14} /> Refresh</button></div>
+        <section className="saved-page__hero" aria-label="Saved collection">
+          <span className="saved-page__hero-icon"><Icon name="saved" size={24} /></span>
+          <div className="saved-page__hero-copy">
+            <span className="saved-page__eyebrow">YOUR PRIVATE COLLECTION</span>
+            <strong>{savedPosts.length} {savedPosts.length === 1 ? 'post' : 'posts'} saved</strong>
+            <p>Keep the ideas, moments, and stories you want to come back to.</p>
+          </div>
+          <button className="saved-page__browse" type="button" onClick={() => onNavigate?.('Home')}>
+            <span>Browse posts</span><Icon name="arrow" size={16} />
+          </button>
+        </section>
+        <div className="saved-page__toolbar">
+          <label className="saved-page__search">
+            <Icon name="search" size={17} />
+            <span className="visually-hidden">Search saved posts</span>
+            <input type="search" value={savedQuery} onChange={(event) => setSavedQuery(event.target.value)} placeholder="Search your collection" autoComplete="off" />
+            {savedQuery && <button type="button" aria-label="Clear saved-post search" onClick={() => setSavedQuery('')}><Icon name="close" size={15} /></button>}
+          </label>
+          <button className="settings-link-button saved-page__refresh" type="button" onClick={() => setRefreshSaved((current) => current + 1)} disabled={savedLoading}><Icon name="history" size={14} /> Refresh</button>
+        </div>
         {savedError && <div className="saved-page__error" role="alert"><span>{savedError}</span><button className="settings-link-button" type="button" onClick={() => setRefreshSaved((current) => current + 1)}>Try again</button></div>}
         {actionError && <p className="saved-page__error" role="alert">{actionError}</p>}
         {savedLoading
           ? <div className="feed-loading" role="status"><span className="feed-loading__spinner" />Loading saved posts...</div>
-          : savedPosts.length
-            ? <ContentStream posts={savedPosts} reactions={reactions} savedPosts={{}} commentsByPost={commentsByPost} followedProfileIds={followedProfileIds} onReact={togglePostLike} onDiscuss={updatePostComments} onToggleFollow={onToggleFollow} onSave={removeSavedPost} onLoadMore={() => {}} onViewProfile={onViewProfile} variant="saved" />
-            : !savedError && <section className="settings-section-card saved-page__empty"><Icon name="saved" size={23} /><h2>No saved posts yet</h2><p>Bookmark a post to keep it here. When you want it again, open More → Saved.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Home')}>Browse posts</button></section>}
+          : visibleSavedPosts.length
+            ? <ContentStream posts={visibleSavedPosts} reactions={reactions} savedPosts={{}} commentsByPost={commentsByPost} followedProfileIds={followedProfileIds} onReact={togglePostLike} onDiscuss={updatePostComments} onToggleFollow={onToggleFollow} onSave={removeSavedPost} onLoadMore={() => {}} onViewProfile={onViewProfile} variant="saved" />
+            : !savedError && (savedPosts.length
+              ? <section className="settings-section-card saved-page__empty saved-page__empty--search"><Icon name="search" size={23} /><h2>No matching posts</h2><p>Try a different search, or clear it to see your full collection.</p><button className="settings-link-button" type="button" onClick={() => setSavedQuery('')}>Clear search</button></section>
+              : <section className="settings-section-card saved-page__empty"><Icon name="saved" size={23} /><h2>No saved posts yet</h2><p>Bookmark a post to keep it here. When you want it again, open More → Saved.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Home')}>Browse posts</button></section>)}
       </>}
       {page === 'History' && <section className="settings-section-card saved-page__empty"><Icon name="history" size={23} /><h2>Activity history isn’t available yet</h2><p>Sonrisetalk does not currently keep a browsable activity log. Your saved posts are available in More → Saved, and updates appear in Notifications.</p><button className="settings-link-button" type="button" onClick={() => onNavigate?.('Notifications')}>Open notifications</button></section>}
       {page === 'Help & support' && <div className="help-guide">
