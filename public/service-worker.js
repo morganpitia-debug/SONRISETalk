@@ -14,25 +14,31 @@ self.addEventListener('push', (event) => {
     } catch {
       return
     }
-    if (payload?.type !== 'incoming-call'
-      || typeof payload.data?.callId !== 'string'
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.data.callId)
+    const isCall = payload?.type === 'incoming-call'
+      && typeof payload.data?.callId === 'string'
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.data.callId)
+    const isMessage = payload?.type === 'incoming-message'
+      && typeof payload.data?.conversationId === 'string'
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.data.conversationId)
+    if ((!isCall && !isMessage)
       || typeof payload.title !== 'string'
       || payload.title.length > 100
       || typeof payload.body !== 'string'
       || payload.body.length > 140) return
 
-    const callId = payload.data.callId
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     if (windows.some((client) => client.visibilityState === 'visible')) return
 
+    const id = isCall ? payload.data.callId : payload.data.conversationId
     await self.registration.showNotification(payload.title, {
       body: payload.body,
       icon: '/icon-192.png?v=4',
       badge: '/icon-192.png?v=4',
-      tag: `incoming-call-${callId}`,
+      tag: `${isCall ? 'incoming-call' : 'incoming-message'}-${id}`,
       renotify: false,
-      data: { callId, url: `/?incomingCallId=${encodeURIComponent(callId)}` },
+      data: isCall
+        ? { callId: id, url: `/?incomingCallId=${encodeURIComponent(id)}` }
+        : { conversationId: id, url: `/?conversationId=${encodeURIComponent(id)}` },
     })
   })())
 })
@@ -40,10 +46,13 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const notificationData = event.notification.data
-  if (typeof notificationData?.callId !== 'string'
-    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationData.callId)) return
+  const isCall = typeof notificationData?.callId === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationData.callId)
+  const isMessage = typeof notificationData?.conversationId === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationData.conversationId)
+  if (!isCall && !isMessage) return
   const targetUrl = new URL('/', self.location.origin)
-  targetUrl.searchParams.set('incomingCallId', notificationData.callId)
+  targetUrl.searchParams.set(isCall ? 'incomingCallId' : 'conversationId', isCall ? notificationData.callId : notificationData.conversationId)
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const client of windows) {

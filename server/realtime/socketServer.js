@@ -8,7 +8,7 @@ import { addOnlineSocket, getOnlineUserIds, isUserOnline, removeOnlineSocket } f
 import { getCallEndStatus, getCallPeerId, isValidCallActivity, isValidCallSignal } from './callPolicy.js'
 import { isAllowedOrigin } from './originPolicy.js'
 import { mediaOwnershipPrefix } from '../media/mediaService.js'
-import { sendIncomingCallPush } from '../push/pushService.js'
+import { sendIncomingCallPush, sendMessagePush } from '../push/pushService.js'
 
 const MESSAGE_LIMIT = 4000
 const ACTIVE_CALL_STATUSES = ['ringing', 'connected']
@@ -367,6 +367,17 @@ export function attachSocketServer(httpServer, { clientUrl }) {
         })
         const data = serializeMessage(message)
         io.to(conversationRoom(conversationId)).emit('message:new', data)
+        const notificationRecipients = conversation.members.filter((member) => (
+          member.userId !== userId && !member.muted
+        ))
+        for (const recipient of notificationRecipients) {
+          void sendMessagePush(recipient.userId, {
+            conversationId,
+            senderName: message.sender.profile?.name ?? message.sender.username,
+            content,
+            hasImage: Boolean(imageUrl),
+          })
+        }
         ack?.({ data })
       } catch {
         replyError(ack, 'MESSAGE_FAILED', 'Your message could not be sent.')
@@ -449,6 +460,11 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           return
         }
         const readAt = new Date()
+        const senderIds = await prisma.message.findMany({
+          where: { conversationId, senderId: { not: userId }, readAt: null },
+          select: { senderId: true },
+          distinct: ['senderId'],
+        })
         await prisma.$transaction([
           prisma.conversationMember.updateMany({
             where: { conversationId, userId },
@@ -459,7 +475,9 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             data: { readAt },
           }),
         ])
-        io.to(conversationRoom(conversationId)).emit('conversation:read', { conversationId, userId, readAt: readAt.toISOString() })
+        let readEvent = io.to(conversationRoom(conversationId))
+        for (const { senderId } of senderIds) readEvent = readEvent.to(userRoom(senderId))
+        readEvent.emit('conversation:read', { conversationId, userId, readAt: readAt.toISOString() })
         ack?.({ data: { readAt: readAt.toISOString() } })
       } catch {
         replyError(ack, 'READ_FAILED', 'Messages could not be marked as read.')

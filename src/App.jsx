@@ -54,7 +54,9 @@ function readSavedAccounts() {
 }
 
 export default function App() {
-  const [activePage, setActivePage] = useState('Home')
+  const [activePage, setActivePage] = useState(() => (
+    new URLSearchParams(window.location.search).has('conversationId') ? 'Messages' : 'Home'
+  ))
   const apiEnabled = isApiEnabled()
   const [authenticated, setAuthenticated] = useState(() => apiEnabled
     ? Boolean(window.localStorage.getItem('sonrisetalk-auth-token') || window.sessionStorage.getItem('sonrisetalk-auth-token'))

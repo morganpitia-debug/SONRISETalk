@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm'
 
 const source = await readFile(new URL('../../public/service-worker.js', import.meta.url), 'utf8')
 const callId = 'c5a02bb0-cba1-4ad0-9e62-756a3fdd4615'
+const conversationId = '3ea5c765-12db-4c7f-bda8-a187c30a710a'
 
 function createWorker(clients = []) {
   const handlers = new Map()
@@ -74,8 +75,52 @@ test('service worker ignores malformed push payloads and calls while the app is 
     data: { callId, url: `/?incomingCallId=${callId}` },
   })
   await dispatchPush(handlers, { title: 'untrusted payload' })
+  await dispatchPush(handlers, {
+    type: 'incoming-message',
+    title: 'Alex',
+    body: 'Hello',
+    data: { conversationId: 'not-a-uuid' },
+  })
 
   assert.equal(notifications.length, 0)
+})
+
+test('service worker shows background message alerts and opens their conversation', async () => {
+  const { handlers, notifications } = createWorker()
+  await dispatchPush(handlers, {
+    type: 'incoming-message',
+    title: 'Alex',
+    body: 'Hello there',
+    data: { conversationId, url: `/?conversationId=${conversationId}` },
+  })
+  assert.equal(notifications.length, 1)
+  assert.equal(notifications[0].options.tag, `incoming-message-${conversationId}`)
+  assert.deepEqual(JSON.parse(JSON.stringify(notifications[0].options.data)), {
+    conversationId,
+    url: `/?conversationId=${conversationId}`,
+  })
+
+  const actions = []
+  const client = {
+    url: 'https://sonrisetalk.example/',
+    navigate: async (url) => actions.push(['navigate', url]),
+    focus: async () => actions.push(['focus']),
+  }
+  const worker = createWorker([client])
+  let completion
+  worker.handlers.get('notificationclick')({
+    notification: {
+      data: { conversationId },
+      close: () => actions.push(['close']),
+    },
+    waitUntil: (promise) => { completion = promise },
+  })
+  await completion
+  assert.deepEqual(actions, [
+    ['close'],
+    ['navigate', `https://sonrisetalk.example/?conversationId=${conversationId}`],
+    ['focus'],
+  ])
 })
 
 test('notification clicks open the incoming call page and focus an existing same-origin window', async () => {

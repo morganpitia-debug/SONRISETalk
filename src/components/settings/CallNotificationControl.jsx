@@ -8,11 +8,11 @@ function applicationServerKeyToBytes(value) {
 }
 
 function pushConfigurationMessage(reason) {
-  if (reason === 'missing') return 'Incoming-call alerts are unavailable because the server is missing its VAPID keys. Ask the administrator to configure VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT.'
-  if (reason === 'mismatch') return 'Incoming-call alerts are unavailable because the server VAPID keys do not match. Ask the administrator to configure one matching key pair.'
-  if (reason === 'invalid_subject') return 'Incoming-call alerts are unavailable because the server VAPID contact address is invalid.'
-  if (reason === 'invalid') return 'Incoming-call alerts are unavailable because the server VAPID key format is invalid.'
-  return 'Incoming-call alerts are not configured on the server.'
+  if (reason === 'missing') return 'Alerts are unavailable because the server is missing its VAPID keys. Ask the administrator to configure VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT.'
+  if (reason === 'mismatch') return 'Alerts are unavailable because the server VAPID keys do not match. Ask the administrator to configure one matching key pair.'
+  if (reason === 'invalid_subject') return 'Alerts are unavailable because the server VAPID contact address is invalid.'
+  if (reason === 'invalid') return 'Alerts are unavailable because the server VAPID key format is invalid.'
+  return 'Alerts are not configured on the server.'
 }
 
 function applicationServerKeyMatches(subscription, expectedKey) {
@@ -24,9 +24,9 @@ function applicationServerKeyMatches(subscription, expectedKey) {
 }
 
 function operationErrorMessage(error) {
-  if (!navigator.onLine) return 'You appear to be offline. Reconnect and try enabling call alerts again.'
+  if (!navigator.onLine) return 'You appear to be offline. Reconnect and try enabling alerts again.'
   if (error?.name === 'SecurityError') return 'Notifications require HTTPS or a trusted local development address.'
-  return error?.message || 'Call notifications could not be enabled.'
+  return error?.message || 'Alerts could not be enabled.'
 }
 
 export default function CallNotificationControl({ prompt = false, userId = '', onDismiss }) {
@@ -125,7 +125,7 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
       const saved = await savePushSubscription(subscription.toJSON())
       if (!saved?.saved) throw new Error('The browser subscribed, but the server did not confirm this device registration.')
       setEnabled(true)
-      setMessage('Call notifications are enabled on this device.')
+      setMessage('Message and call alerts are enabled on this device.')
     } catch (error) {
       setMessage(operationErrorMessage(error))
     } finally {
@@ -144,7 +144,7 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
         await subscription.unsubscribe()
       }
       setEnabled(false)
-      setMessage('Call notifications are disabled on this device.')
+      setMessage('Message and call alerts are disabled on this device.')
     } catch (error) {
       setMessage(operationErrorMessage(error))
     } finally {
@@ -167,11 +167,11 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
           <span className="call-notification-prompt__eyebrow">STAY CLOSE</span>
           <h2 id="call-notification-title">Be there when they call</h2>
           <p className="call-notification-prompt__description">
-            Get an alert when someone invites you to an audio or group conversation, even when Sonrisetalk isn’t open in front of you.
+            Get message and call alerts when Sonrisetalk isn’t open in front of you.
           </p>
           <ul>
-            <li><Icon name="phone" size={16} /><span>See incoming call invitations sooner</span></li>
-            <li><Icon name="messages" size={16} /><span>Know when friends are gathering</span></li>
+            <li><Icon name="messages" size={16} /><span>Know when someone sends you a message</span></li>
+            <li><Icon name="phone" size={16} /><span>See incoming call invitations and answer in the app</span></li>
             <li><Icon name="notifications" size={16} /><span>Change or turn off alerts anytime in Settings</span></li>
           </ul>
           {!supported && <p className="call-notification-prompt__notice">{supportMessage}</p>}
@@ -191,7 +191,7 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
           <div className="call-notification-prompt__actions">
             {supported && !permissionDenied && (
               <button type="button" disabled={working} onClick={enable}>
-                {working ? 'Enabling…' : 'Enable call alerts'}
+                {working ? 'Enabling…' : 'Enable alerts'}
               </button>
             )}
             <button type="button" className="call-notification-prompt__later" disabled={working} onClick={dismissPrompt}>
@@ -206,7 +206,7 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
   return (
     <div className="settings-push-control">
       <div className="settings-option-row">
-        <span><strong>Incoming-call alerts</strong><small>{supportMessage || (supported ? enabled ? 'This device can show alerts when Sonrisetalk is closed.' : 'Allow this browser to alert you about incoming calls.' : 'Checking notification support…')}</small></span>
+        <span><strong>Message and call alerts</strong><small>{supportMessage || (supported ? enabled ? 'This device can show message and call alerts when Sonrisetalk is closed.' : 'Allow this browser to alert you about messages and incoming calls.' : 'Checking notification support…')}</small></span>
         <button className="settings-link-button" type="button" disabled={!supported || working} onClick={enabled ? disable : enable}>
           {working ? 'Please wait…' : enabled ? 'Disable' : 'Enable'}
         </button>

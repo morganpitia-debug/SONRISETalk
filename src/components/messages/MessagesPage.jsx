@@ -978,6 +978,7 @@ function ChatPanel({ conversation, conversations, messages, reactions, callHisto
                     </>}
                 {!message.unsent && <time>{message.time}</time>}
               </div>
+              {message.from === 'me' && message.readAt && <span className="messages-bubble__seen" role="status">Seen</span>}
               {!message.unsent && <MessageActions
                 message={message}
                 conversations={conversations.filter((item) => item.id !== conversation.id && !item.blocked)}
@@ -1277,7 +1278,7 @@ function ReportConversationDialog({ conversation, targets, onClose, onSubmit }) 
   )
 }
 
-export default function MessagesPage({ onMobileChatChange, onCallContactsChange, openProfile, onViewProfile, onStartCall, callActive = false, currentUser = { id: '', name: '', username: '' } }) {
+export default function MessagesPage({ onMobileChatChange, onCallContactsChange, openProfile, onViewProfile, onStartCall, callActive = false, currentUser = { id: '', name: '', username: '' }, initialConversationId = new URLSearchParams(window.location.search).get('conversationId') || '' }) {
   const callManager = useContext(CallManagerContext)
   const usesApi = isApiEnabled()
   const [conversations, setConversations] = useState([])
@@ -1396,7 +1397,11 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
     reloadConversations()
       .then((nextConversations) => {
         if (!active) return
-        if (!window.matchMedia('(max-width: 760px)').matches && nextConversations.length) {
+        const linkedConversation = nextConversations.find(({ id }) => id === initialConversationId)
+        if (linkedConversation) {
+          setSelectedId(linkedConversation.id)
+          setConversationOpen(true)
+        } else if (!window.matchMedia('(max-width: 760px)').matches && nextConversations.length) {
           setSelectedId(nextConversations[0].id)
         }
       })
@@ -1430,7 +1435,7 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
         if (active) setMessagingError(error.message || 'Notes could not load.')
       })
     return () => { active = false }
-  }, [currentUser.id, reloadCallHistory, reloadConversations, usesApi])
+  }, [currentUser.id, initialConversationId, reloadCallHistory, reloadConversations, usesApi])
 
   useEffect(() => {
     if (!usesApi) return undefined
@@ -1536,6 +1541,7 @@ export default function MessagesPage({ onMobileChatChange, onCallContactsChange,
           })))
         })
         connection.on('realtime:error', ({ message }) => setMessagingError(message))
+        connection.connect()
       })
       .catch((error) => {
         if (active) {

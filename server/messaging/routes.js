@@ -17,6 +17,7 @@ import {
 } from '../media/mediaService.js'
 import { isUserOnline } from '../realtime/presence.js'
 import { conversationRoom, getRealtimeServer, userRoom } from '../realtime/socketServer.js'
+import { sendMessagePush } from '../push/pushService.js'
 
 const router = Router()
 const MAX_PARTICIPANTS = 10
@@ -634,6 +635,13 @@ router.post('/:conversationId/voice-notes', voiceNoteRateLimit, voiceNoteUpload.
       voiceNoteUrl: data.voiceNoteUrl,
       voiceNoteMimeType: uploaded.mimeType,
     })
+    for (const recipientId of notificationRecipientIds) {
+      void sendMessagePush(recipientId, {
+        conversationId: conversation.id,
+        senderName: message.sender.profile?.name ?? message.sender.username,
+        hasVoiceNote: true,
+      })
+    }
     response.status(201).json({ data: { message: data } })
   } catch (error) {
     if (uploaded?.assetId && !persisted) {
