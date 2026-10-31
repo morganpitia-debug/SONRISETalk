@@ -4,6 +4,7 @@ import FloatingNavigation from './FloatingNavigation.jsx'
 import GlassSurface from './GlassSurface.jsx'
 import Icon from './Icon.jsx'
 import CallOverlay from './messages/CallOverlay.jsx'
+import GroupCallInvitation from './messages/GroupCallInvitation.jsx'
 import CallNotificationControl from './settings/CallNotificationControl.jsx'
 import useCallManager, { CallManagerContext } from '../hooks/useCallManager.js'
 import MoreMenu from './MoreMenu.jsx'
@@ -479,6 +480,15 @@ export default function AppShell({ activePage, onNavigate, theme, onThemeChange,
       </CallManagerContext.Provider>
 
       {usesApi && authUser?.id && <CallNotificationControl prompt userId={authUser.id} />}
+
+      {callManager.availableGroupCalls[0] && (
+        <GroupCallInvitation
+          invitation={callManager.availableGroupCalls[0]}
+          onJoin={callManager.joinGroupCall}
+          onDecline={callManager.declineGroupCall}
+          onLoadMembers={callManager.getGroupCallDetails}
+        />
+      )}
 
       <CallOverlay
         call={callManager.call}

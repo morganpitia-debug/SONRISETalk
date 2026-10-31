@@ -561,6 +561,20 @@ export default function useCallManager(enabled, currentUserId) {
     endCall('declined')
   }, [endCall, updateCall])
 
+  const declineGroupCall = useCallback(async (incomingCall) => {
+    if (!incomingCall?.id) return
+    const socket = socketRef.current
+    if (!socket?.connected) throw new Error('Call signaling disconnected. Reconnect and try again.')
+    await emitAck(socket, 'call:group-decline', { callId: incomingCall.id })
+    setAvailableGroupCalls((current) => current.filter((item) => item.id !== incomingCall.id))
+  }, [])
+
+  const getGroupCallDetails = useCallback(async (callId) => {
+    const socket = socketRef.current
+    if (!socket?.connected) throw new Error('Call signaling disconnected. Reconnect and try again.')
+    return emitAck(socket, 'call:group-details', { callId })
+  }, [])
+
   const toggleMute = useCallback(async () => {
     const nextMuted = !muted
     if (groupRoomRef.current) {
@@ -704,6 +718,8 @@ export default function useCallManager(enabled, currentUserId) {
     acceptCall,
     joinGroupCall,
     declineCall,
+    declineGroupCall,
+    getGroupCallDetails,
     endCall,
     toggleMute,
     toggleCamera,

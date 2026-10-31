@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from '../Icon.jsx'
 import { deletePushSubscription, getPushConfiguration, getPushSubscriptions, registerServiceWorker, savePushSubscription } from '../../api/push.js'
 
 function applicationServerKeyToBytes(value) {
@@ -30,6 +31,7 @@ function operationErrorMessage(error) {
 
 export default function CallNotificationControl({ prompt = false, userId = '', onDismiss }) {
   const [supported, setSupported] = useState(false)
+  const [statusChecked, setStatusChecked] = useState(false)
   const [supportMessage, setSupportMessage] = useState('')
   const [enabled, setEnabled] = useState(false)
   const [working, setWorking] = useState(false)
@@ -37,14 +39,14 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
+    setDismissed(false)
+    setEnabled(false)
+    setMessage('')
+    setStatusChecked(false)
+  }, [userId])
+
+  useEffect(() => {
     let active = true
-    if (prompt && userId) {
-      try {
-        setDismissed(window.localStorage.getItem(`sonrisetalk-call-notice-dismissed-${userId}`) === 'true')
-      } catch (error) {
-        console.error('Could not read the call-notification prompt preference.', error)
-      }
-    }
     async function readStatus() {
       const available = window.isSecureContext
         && 'serviceWorker' in navigator
@@ -56,10 +58,14 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
         setSupportMessage(!window.isSecureContext
           ? 'Notifications require HTTPS or a trusted local development address.'
           : 'This browser does not support background push notifications.')
+        setStatusChecked(true)
         return
       }
       setSupportMessage('')
-      if (Notification.permission !== 'granted') return
+      if (Notification.permission !== 'granted') {
+        setStatusChecked(true)
+        return
+      }
 
       try {
         const [registration, stored, configuration] = await Promise.all([
@@ -74,11 +80,13 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
         }
       } catch (error) {
         if (active) setMessage(operationErrorMessage(error))
+      } finally {
+        if (active) setStatusChecked(true)
       }
     }
     void readStatus()
     return () => { active = false }
-  }, [prompt, userId])
+  }, [userId])
 
   async function enable() {
     setWorking(true)
@@ -90,10 +98,6 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
       if (Notification.permission === 'denied') {
         throw new Error('Notifications are blocked. Allow them for Sonrisetalk in your browser or device settings, then try again.')
       }
-      const configuration = await getPushConfiguration()
-      if (!configuration.configured || !configuration.publicKey) {
-        throw new Error(pushConfigurationMessage(configuration.reason))
-      }
       const permission = Notification.permission === 'granted'
         ? 'granted'
         : await Notification.requestPermission()
@@ -101,6 +105,10 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
         throw new Error(permission === 'denied'
           ? 'Notifications are blocked. Allow them for Sonrisetalk in your browser or device settings, then try again.'
           : 'Notification permission was not granted. Tap Enable alerts to try again.')
+      }
+      const configuration = await getPushConfiguration()
+      if (!configuration.configured || !configuration.publicKey) {
+        throw new Error(pushConfigurationMessage(configuration.reason))
       }
       const registration = await registerServiceWorker()
       const applicationServerKey = applicationServerKeyToBytes(configuration.publicKey)
@@ -145,31 +153,53 @@ export default function CallNotificationControl({ prompt = false, userId = '', o
   }
 
   function dismissPrompt() {
-    try {
-      if (userId) window.localStorage.setItem(`sonrisetalk-call-notice-dismissed-${userId}`, 'true')
-      setDismissed(true)
-      onDismiss?.()
-    } catch (error) {
-      setMessage(error.message || 'The notification prompt preference could not be saved.')
-    }
+    setDismissed(true)
+    onDismiss?.()
   }
 
   if (prompt) {
-    if (!supported || enabled || dismissed || Notification.permission === 'denied') return null
+    if (!statusChecked || enabled || dismissed) return null
+    const permissionDenied = supported && Notification.permission === 'denied'
     return (
-      <aside className="call-notification-prompt" aria-label="Incoming call notifications">
-        <div>
-          <strong>Don’t miss a call</strong>
-          <p>{Notification.permission === 'denied'
-            ? 'Notifications are blocked for this site. Allow them in your browser settings to receive call alerts while Sonrisetalk is closed.'
-            : 'Turn on call alerts for this device. Your browser will ask for permission when you continue. On iPhone, install Sonrisetalk to your Home Screen first.'}</p>
-          {message && <small role="alert">{message}</small>}
-        </div>
-        <div className="call-notification-prompt__actions">
-          {Notification.permission !== 'denied' && <button type="button" disabled={working} onClick={enable}>{working ? 'Enabling…' : 'Enable alerts'}</button>}
-          <button type="button" disabled={working} onClick={dismissPrompt}>Not now</button>
-        </div>
-      </aside>
+      <div className="call-notification-prompt">
+        <section className="call-notification-prompt__dialog" role="dialog" aria-modal="true" aria-labelledby="call-notification-title">
+          <div className="call-notification-prompt__icon"><Icon name="notifications" size={25} /></div>
+          <span className="call-notification-prompt__eyebrow">STAY CLOSE</span>
+          <h2 id="call-notification-title">Be there when they call</h2>
+          <p className="call-notification-prompt__description">
+            Get an alert when someone invites you to an audio or group conversation, even when Sonrisetalk isn’t open in front of you.
+          </p>
+          <ul>
+            <li><Icon name="phone" size={16} /><span>See incoming call invitations sooner</span></li>
+            <li><Icon name="messages" size={16} /><span>Know when friends are gathering</span></li>
+            <li><Icon name="notifications" size={16} /><span>Change or turn off alerts anytime in Settings</span></li>
+          </ul>
+          {!supported && <p className="call-notification-prompt__notice">{supportMessage}</p>}
+          {permissionDenied && (
+            <p className="call-notification-prompt__notice">
+              Alerts are blocked by your browser. Open this site’s permissions in your browser or device settings, allow notifications, then reopen Sonrisetalk to enable them.
+            </p>
+          )}
+          {message && <p className="call-notification-prompt__notice" role="alert">{message}</p>}
+          {supported && !permissionDenied && (
+            <p className="call-notification-prompt__hint">
+              {Notification.permission === 'granted'
+                ? 'You can turn off alerts anytime in Settings.'
+                : 'Your browser will ask for permission after you choose Enable. On iPhone, add Sonrisetalk to your Home Screen first.'}
+            </p>
+          )}
+          <div className="call-notification-prompt__actions">
+            {supported && !permissionDenied && (
+              <button type="button" disabled={working} onClick={enable}>
+                {working ? 'Enabling…' : 'Enable call alerts'}
+              </button>
+            )}
+            <button type="button" className="call-notification-prompt__later" disabled={working} onClick={dismissPrompt}>
+              {supported && !permissionDenied ? 'Not now' : 'Continue without alerts'}
+            </button>
+          </div>
+        </section>
+      </div>
     )
   }
 

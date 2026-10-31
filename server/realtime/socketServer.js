@@ -228,7 +228,16 @@ export function attachSocketServer(httpServer, { clientUrl }) {
       },
       include: {
         initiator: { include: { profile: true } },
-        conversation: { select: { groupName: true } },
+        conversation: {
+          select: {
+            groupName: true,
+            _count: { select: { members: true } },
+          },
+        },
+        participants: {
+          where: { leftAt: null },
+          include: { user: { include: { profile: true } } },
+        },
       },
     }).then((calls) => {
       for (const call of calls) {
@@ -243,6 +252,12 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             profilePicture: call.initiator.profile?.profilePicture ?? null,
           },
           groupName: call.conversation.groupName,
+          groupMemberCount: call.conversation._count.members,
+          participants: call.participants.map(({ user: participant }) => ({
+            userId: participant.id,
+            name: participant.profile?.name ?? participant.username,
+            profilePicture: participant.profile?.profilePicture ?? null,
+          })),
           mediaType: call.mediaType,
           status: call.status,
           startedAt: call.startedAt.toISOString(),
@@ -528,6 +543,14 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           status: call.status,
           startedAt: call.startedAt.toISOString(),
           ...(isGroupCall ? { callMode: 'group', acceptedAt: acceptedAt.toISOString() } : {}),
+          ...(isGroupCall ? {
+            groupMemberCount: conversation.members.length,
+            participants: [{
+              userId: caller.id,
+              name: caller.profile?.name ?? caller.username,
+              profilePicture: caller.profile?.profilePicture ?? null,
+            }],
+          } : {}),
         }
         if (isGroupCall) {
           for (const member of conversation.members) {
@@ -816,6 +839,18 @@ export function attachSocketServer(httpServer, { clientUrl }) {
           name: invitingUser.profile?.name ?? invitingUser.username,
           profilePicture: invitingUser.profile?.profilePicture ?? null,
         }
+        const [activeParticipants, groupMemberCount] = await Promise.all([
+          prisma.user.findMany({
+            where: { id: { in: call.participants.map(({ userId: participantId }) => participantId) } },
+            include: { profile: true },
+          }),
+          prisma.conversationMember.count({ where: { conversationId: call.conversationId } }),
+        ])
+        const participants = activeParticipants.map((participant) => ({
+          userId: participant.id,
+          name: participant.profile?.name ?? participant.username,
+          profilePicture: participant.profile?.profilePicture ?? null,
+        }))
         const invited = []
         for (const invitee of eligiblePeople) {
           await prisma.callInvitation.upsert({
@@ -835,6 +870,8 @@ export function attachSocketServer(httpServer, { clientUrl }) {
             callMode: 'group',
             isHost: false,
             caller: inviter,
+            groupMemberCount,
+            participants,
           }
           io.to(userRoom(invitee.id)).emit('call:group-incoming', invite)
           void sendIncomingCallPush(invitee.id, invite)
@@ -900,6 +937,52 @@ export function attachSocketServer(httpServer, { clientUrl }) {
       } catch (error) {
         console.error('Could not decline group call:', error)
         replyError(ack, 'CALL_DECLINE_FAILED', 'The group call invitation could not be declined.')
+      }
+    })
+
+    socket.on('call:group-details', async (payload, ack) => {
+      try {
+        const call = await prisma.call.findFirst({
+          where: {
+            id: payload?.callId,
+            status: 'connected',
+            conversation: { groupName: { not: null } },
+            OR: [
+              { participants: { some: { userId, leftAt: null } } },
+              { invitations: { some: { userId, status: 'invited' } } },
+              { conversation: { members: { some: { userId } } } },
+            ],
+          },
+          include: {
+            participants: {
+              where: { leftAt: null },
+              include: { user: { include: { profile: true } } },
+            },
+            conversation: {
+              select: {
+                groupName: true,
+                _count: { select: { members: true } },
+              },
+            },
+          },
+        })
+        if (!call) {
+          replyError(ack, 'CALL_NOT_FOUND', 'This group call is no longer available.')
+          return
+        }
+        ack?.({
+          data: {
+            participants: call.participants.map(({ user: participant }) => ({
+              userId: participant.id,
+              name: participant.profile?.name ?? participant.username,
+              profilePicture: participant.profile?.profilePicture ?? null,
+            })),
+            groupMemberCount: call.conversation._count.members,
+          },
+        })
+      } catch (error) {
+        console.error('Could not load group call members:', error)
+        replyError(ack, 'CALL_DETAILS_FAILED', 'The people currently in this call could not be loaded.')
       }
     })
 
