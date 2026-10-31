@@ -28,8 +28,8 @@ self.addEventListener('push', (event) => {
 
     await self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/icon-192.png?v=4',
+      badge: '/icon-192.png?v=4',
       tag: `incoming-call-${callId}`,
       renotify: false,
       data: { callId, url: '/' },
