@@ -51,9 +51,10 @@ test('service worker shows only valid incoming-call push payloads without duplic
   const { handlers, notifications } = createWorker()
   await dispatchPush(handlers, {
     type: 'incoming-call',
-    callId,
     title: 'Alex is calling',
     body: 'Group incoming voice call',
+    tag: `incoming-call-${callId}`,
+    data: { callId, url: '/' },
   })
 
   assert.equal(notifications.length, 1)
@@ -67,9 +68,10 @@ test('service worker ignores malformed push payloads and calls while the app is 
   const { handlers, notifications } = createWorker([visibleClient])
   await dispatchPush(handlers, {
     type: 'incoming-call',
-    callId,
     title: 'Alex is calling',
     body: 'Group incoming voice call',
+    tag: `incoming-call-${callId}`,
+    data: { callId, url: '/' },
   })
   await dispatchPush(handlers, { title: 'untrusted payload' })
 
@@ -105,9 +107,10 @@ test('service worker closes an incoming-call alert when the call ends', async ()
   const { handlers, notifications } = createWorker()
   await dispatchPush(handlers, {
     type: 'incoming-call',
-    callId,
     title: 'Alex is calling',
     body: 'Group incoming voice call',
+    tag: `incoming-call-${callId}`,
+    data: { callId, url: '/' },
   })
 
   let completion

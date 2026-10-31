@@ -15,13 +15,14 @@ self.addEventListener('push', (event) => {
       return
     }
     if (payload?.type !== 'incoming-call'
-      || typeof payload.callId !== 'string'
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.callId)
+      || typeof payload.data?.callId !== 'string'
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.data.callId)
       || typeof payload.title !== 'string'
       || payload.title.length > 100
       || typeof payload.body !== 'string'
       || payload.body.length > 140) return
 
+    const callId = payload.data.callId
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     if (windows.some((client) => client.visibilityState === 'visible')) return
 
@@ -29,9 +30,9 @@ self.addEventListener('push', (event) => {
       body: payload.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: `incoming-call-${payload.callId}`,
+      tag: `incoming-call-${callId}`,
       renotify: false,
-      data: { callId: payload.callId, url: '/' },
+      data: { callId, url: '/' },
     })
   })())
 })

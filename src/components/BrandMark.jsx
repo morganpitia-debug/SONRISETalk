@@ -3,6 +3,7 @@ export default function BrandMark({ size = 34, className = '' }) {
     <svg
       aria-hidden="true"
       className={className}
+      style={{ color: 'var(--orange)' }}
       width={size}
       height={size}
       viewBox="0 0 40 40"

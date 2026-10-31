@@ -32,6 +32,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright);
 :root[data-theme="dark"] .app-shell--home,
 :root[data-theme="dark"] .app-shell--discover,
 :root[data-theme="dark"] .app-shell--create,
+:root[data-theme="dark"] .app-shell--profile,
 :root[data-theme="dark"] .app-shell--settings,
 :root[data-theme="dark"] .app-shell--notifications,
 :root[data-theme="dark"] .app-shell--messages {
@@ -41,6 +42,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--orange-bright);
 :root[data-theme="light"] .app-shell--home,
 :root[data-theme="light"] .app-shell--discover,
 :root[data-theme="light"] .app-shell--create,
+:root[data-theme="light"] .app-shell--profile,
 :root[data-theme="light"] .app-shell--settings,
 :root[data-theme="light"] .app-shell--notifications,
 :root[data-theme="light"] .app-shell--messages {
